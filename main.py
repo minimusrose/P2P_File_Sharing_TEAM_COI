@@ -20,7 +20,7 @@ from p2p_file_sharing.utils.config import (
     TRANSFER_PORT_START
 )
 from p2p_file_sharing.gui.main_window import MainWindow
-
+from p2p_file_sharing.network.message_handler import MessageHandler
 # Imports conditionnels (graceful si modules pas encore mergés)
 try:
     from p2p_file_sharing.network.discovery import UDPDiscovery
@@ -87,27 +87,24 @@ def main():
         print("✗ Core modules unavailable")
     
     if NETWORK_AVAILABLE and peer_manager:
-        logger.info("Initializing network modules...")
-        print("✓ Network modules loaded")
-        
-        # UDP Discovery
+         # UDP Discovery avec callback peer_manager
         discovery = UDPDiscovery(peer_id, DISCOVERY_PORT)
         discovery.start_listening(peer_manager.handle_peer_announce)
         discovery.start_broadcasting()
-        print(f"  - UDP discovery on port {DISCOVERY_PORT}")
         
-        # TCP Server
-        def on_message(sender_peer_id, message):
-            logger.info(f"Message from {sender_peer_id}: {message['type']}")
-            # TODO: Router messages to handlers
+       # Création d'une instance de MessageHandler pour router les messages TCP 
+        from p2p_file_sharing.network.message_handler import MessageHandler
+        message_handler = MessageHandler(peer_manager, file_manager)
+        
+        # TCP Server avec handler messages
+        def on_tcp_message(sender_peer_id, message):
+            logger.info(f"TCP message from {sender_peer_id}: {message['type']}")
+            # Router selon type
+            message_handler.handle_message(sender_peer_id, message)
         
         tcp_server = TCPServer(TRANSFER_PORT_START)
-        tcp_server.start(on_message)
-        print(f"  - TCP server on port {TRANSFER_PORT_START}")
-    else:
-        logger.warning("Network modules not available")
-        print("✗ Network modules unavailable (offline mode)")
-    
+        tcp_server.start(on_tcp_message)
+        
     # === Launch GUI ===
     logger.info("Launching GUI...")
     print("\n🖥️  Launching GUI...")
