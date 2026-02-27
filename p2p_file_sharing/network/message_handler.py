@@ -52,3 +52,25 @@ class MessageHandler:
         """Peer envoie un chunk"""
         logger.info(f"Chunk received from {sender_peer_id}")
         # TODO: Stocker chunk
+
+    def broadcast_my_files(self, tcp_server, my_peer_id, file_list):
+        """
+        Broadcast notre liste de fichiers à tous les peers
+        
+        Args:
+            tcp_server: Instance TCPServer
+            my_peer_id: Notre ID
+            file_list: Liste fichiers à envoyer
+        """
+        from .protocol import create_message, MessageType
+        
+        message = create_message(
+            MessageType.FILE_LIST_RESPONSE,
+            my_peer_id,
+            {"files": file_list},
+        )
+        # Envoyer à tous les peers connectés
+        for peer_id in list(tcp_server.clients.keys()):
+            tcp_server.send_to_peer(peer_id, message)
+        
+        logger.info(f"Broadcasted {len(file_list)} files to peers")

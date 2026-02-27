@@ -158,6 +158,8 @@ class FileManager:
                 self.db.add_local_shared(file_id, filepath)
             
             logger.info(f"Shared file added: {path.name} (ID: {file_id})")
+            logger.info(f"File shared: {file_id} - Ready to broadcast")
+    
             return file_id
             
         except Exception as e:
@@ -170,7 +172,25 @@ class FileManager:
             return []
         
         return self.db.get_local_shared_files()
+
+    def get_my_file_list(self) -> List[Dict]:
+        """Retourne liste de nos fichiers pour l'envoyer aux peers"""
+        files = self.get_shared_files()
     
+        # Format pour envoi réseau
+        file_list = []
+        for f in files:
+            file_list.append({
+            'file_id': f['file_id'],
+            'filename': f['filename'],
+            'size': f['size'],
+            'hash': f['hash'],
+            'chunks_total': f['chunks_total']
+        })
+    
+        return file_list
+    
+
     def download_file(self, file_id: str, save_path: str, 
                       progress_callback: Callable[[int], None]) -> None:
         """
@@ -184,3 +204,5 @@ class FileManager:
         # TODO: Implémenter lors de l'intégration avec network layer
         logger.info(f"Download requested: {file_id} -> {save_path}")
         pass
+
+    
