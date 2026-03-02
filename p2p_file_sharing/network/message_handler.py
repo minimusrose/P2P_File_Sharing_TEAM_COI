@@ -116,7 +116,6 @@ class MessageHandler:
         try:
             # Charger le chunk depuis le fichier
             import base64
-            from pathlib import Path
             
             filepath = local_file['filepath']
             chunk_size = 256 * 1024  # 256 KB
@@ -132,39 +131,29 @@ class MessageHandler:
             # Encoder en base64 pour transport JSON
             chunk_data_b64 = base64.b64encode(chunk_data).decode('utf-8')
             
-            # Créer réponse
-            from .protocol import create_message, MessageType as _MT
-            from .connection import TCPClient
+            logger.info(f"Chunk {chunk_index}: {len(chunk_data)} bytes, hash={chunk_hash[:8]}...")
             
-            response = create_message(
-                _MT.CHUNK_DATA,
-                self.peer_manager.local_peer_id,
-                {
+            # Créer réponse (message dict, pas bytes)
+            response = {
+                'type': 'CHUNK_DATA',
+                'peer_id': self.peer_manager.local_peer_id,
+                'data': {
                     'file_id': file_id,
                     'chunk_index': chunk_index,
                     'chunk_data': chunk_data_b64,
                     'hash': chunk_hash
                 }
-            )
+            }
             
-            # Récupérer l'IP du peer demandeur
-            peers = self.peer_manager.get_online_peers()
-            peer_info = next((p for p in peers if p['peer_id'] == sender_peer_id), None)
-            
-            if peer_info:
-                client = TCPClient()
-                try:
-                    if client.connect(peer_info['ip'], peer_info['port']):
-                        client.send_message(response)
-                        logger.info(f"Chunk {chunk_index} sent to {sender_peer_id}")
-                    else:
-                        logger.warning(f"Could not connect to {sender_peer_id}")
-                except Exception as e:
-                    logger.error(f"Error sending chunk: {e}")
-                finally:
-                    client.close()
+            # Envoyer via TCPServer sur la connexion existante
+            if self.tcp_server:
+                success = self.tcp_server.send_to_peer(sender_peer_id, response)
+                if success:
+                    logger.info(f"Chunk {chunk_index} sent to {sender_peer_id} via existing connection")
+                else:
+                    logger.error(f"Failed to send chunk {chunk_index} to {sender_peer_id}")
             else:
-                logger.warning(f"Peer {sender_peer_id} info not found")
+                logger.error("No TCP server available to send chunk")
                 
         except Exception as e:
             logger.error(f"Error handling chunk request: {e}", exc_info=True)
