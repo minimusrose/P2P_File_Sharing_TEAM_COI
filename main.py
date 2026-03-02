@@ -73,6 +73,7 @@ def main():
     file_manager = None
     discovery = None
     tcp_server = None
+    network_handler = None
     
     if CORE_AVAILABLE:
         logger.info("Initializing core modules...")
@@ -105,12 +106,18 @@ def main():
         tcp_server = TCPServer(TRANSFER_PORT_START)
         tcp_server.start(on_tcp_message)
         
+        # Créer NetworkHandler pour la GUI
+        from p2p_file_sharing.network.network_handler import NetworkHandler
+        network_handler = NetworkHandler(tcp_server, message_handler)
+        logger.info("Network handler created for GUI")
+        print("✓ Network handler ready")
+        
     # === Launch GUI ===
     logger.info("Launching GUI...")
     print("\n🖥️  Launching GUI...")
     print("=" * 60)
     
-    gui = MainWindow(peer_manager, file_manager, None)
+    gui = MainWindow(peer_manager, file_manager, network_handler)
     
     try:
         gui.run()

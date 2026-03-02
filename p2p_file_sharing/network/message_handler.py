@@ -90,19 +90,51 @@ class MessageHandler:
         Broadcast notre liste de fichiers à tous les peers
         
         Args:
-            tcp_server: Instance TCPServer
+            tcp_server: Instance TCPServer (peut être None)
             my_peer_id: Notre ID
             file_list: Liste fichiers à envoyer
         """
         from .protocol import create_message, MessageType
+        from .connection import TCPClient
         
         message = create_message(
             MessageType.FILE_LIST_RESPONSE,
             my_peer_id,
             {"files": file_list},
         )
-        # Envoyer à tous les peers connectés
-        for peer_id in list(tcp_server.clients.keys()):
-            tcp_server.send_to_peer(peer_id, message)
         
-        logger.info(f"Broadcasted {len(file_list)} files to peers")
+        # Récupérer tous les peers actifs de la base de données
+        if not self.peer_manager or not hasattr(self.peer_manager, 'get_online_peers'):
+            logger.warning("Cannot broadcast: peer_manager not available")
+            return
+        
+        online_peers = self.peer_manager.get_online_peers()
+        sent_count = 0
+        
+        for peer_data in online_peers:
+            peer_id = peer_data['peer_id']
+            ip = peer_data['ip']
+            port = peer_data['port']
+            
+            # Option 1: Utiliser connexion existante si disponible
+            if tcp_server and peer_id in tcp_server.clients:
+                try:
+                    tcp_server.send_to_peer(peer_id, message)
+                    sent_count += 1
+                    logger.debug(f"Sent via persistent connection to {peer_id}")
+                    continue
+                except Exception as e:
+                    logger.warning(f"Failed to send via persistent connection: {e}")
+            
+            # Option 2: Créer connexion temporaire pour envoyer
+            client = TCPClient()
+            try:
+                if client.connect(ip, port):
+                    if client.send_message(message):
+                        sent_count += 1
+                        logger.debug(f"Sent via new connection to {peer_id} at {ip}:{port}")
+                    client.close()
+            except Exception as e:
+                logger.error(f"Failed to broadcast to {peer_id} at {ip}:{port}: {e}")
+        
+        logger.info(f"Broadcasted {len(file_list)} files to {sent_count}/{len(online_peers)} peers")
