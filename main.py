@@ -142,8 +142,46 @@ class NetworkHandler:
         
         logger.info(f"FILE_LIST_REQUEST sent to {sent_count}/{len(peers)} peers")
 
+def get_or_create_peer_id() -> str:
+    """
+    Récupère ou crée un ID persistant pour ce peer
+    
+    Returns:
+        str: ID du peer (persistant entre les sessions)
+    """
+    from p2p_file_sharing.utils.config import APP_DATA_DIR
+    from pathlib import Path
+    
+    peer_id_file = APP_DATA_DIR / "peer_id.txt"
+    
+    # Essayer de charger l'ID existant
+    if peer_id_file.exists():
+        try:
+            with open(peer_id_file, 'r') as f:
+                peer_id = f.read().strip()
+            if peer_id:
+                logger.info(f"Loaded existing peer ID: {peer_id}")
+                return peer_id
+        except Exception as e:
+            logger.warning(f"Could not load peer ID: {e}")
+    
+    # Générer un nouvel ID
+    hostname = socket.gethostname()
+    random_id = random.randint(1000, 9999)
+    peer_id = f"{hostname}_{random_id}"
+    
+    # Sauvegarder pour persistance
+    try:
+        with open(peer_id_file, 'w') as f:
+            f.write(peer_id)
+        logger.info(f"Created and saved new peer ID: {peer_id}")
+    except Exception as e:
+        logger.error(f"Could not save peer ID: {e}")
+    
+    return peer_id
+
 def generate_peer_id() -> str:
-    """Génère un ID unique pour ce peer"""
+    """DEPRECATED: Utiliser get_or_create_peer_id() à la place"""
     hostname = socket.gethostname()
     random_id = random.randint(1000, 9999)
     return f"{hostname}_{random_id}"
@@ -163,8 +201,8 @@ def main():
     # Setup signal handler
     signal.signal(signal.SIGINT, signal_handler)
     
-    # Générer peer ID
-    peer_id = generate_peer_id()
+    # Générer ou charger peer ID persistant
+    peer_id = get_or_create_peer_id()
     logger.info(f"Local Peer ID: {peer_id}")
     print(f"Peer ID: {peer_id}")
     
