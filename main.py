@@ -41,6 +41,100 @@ except ImportError:
 
 logger = setup_logger()
 
+
+class NetworkHandler:
+    """
+    Contrôleur réseau utilisé par la GUI.
+
+    - broadcast_my_files: envoie notre liste de fichiers à tous les peers.
+    - request_file_lists: demande la liste de fichiers à tous les peers.
+    """
+
+    def __init__(self, peer_manager):
+        self.peer_manager = peer_manager
+
+    def _get_online_peers(self):
+        if not self.peer_manager or not hasattr(self.peer_manager, "get_online_peers"):
+            return []
+        return self.peer_manager.get_online_peers()
+
+    def broadcast_my_files(self, my_peer_id, file_list):
+        """Broadcast FILE_LIST_RESPONSE à tous les peers connus."""
+        from p2p_file_sharing.network.connection import TCPClient
+        from p2p_file_sharing.network.protocol import create_message, MessageType
+
+        peers = self._get_online_peers()
+        if not peers:
+            logger.info("No peers online to broadcast file list")
+            return
+
+        message = create_message(
+            MessageType.FILE_LIST_RESPONSE,
+            my_peer_id,
+            {"files": file_list},
+        )
+
+        for peer in peers:
+            if peer["peer_id"] == my_peer_id:
+                continue
+
+            client = TCPClient()
+            if not client.connect(peer["ip"], peer["port"]):
+                logger.warning(
+                    f"Could not connect to peer {peer['peer_id']} "
+                    f"at {peer['ip']}:{peer['port']}"
+                )
+                continue
+
+            try:
+                client.send_message(message)
+                logger.info(
+                    f"Broadcasted {len(file_list)} files to "
+                    f"{peer['peer_id']} ({peer['ip']}:{peer['port']})"
+                )
+            finally:
+                client.close()
+
+    def request_file_lists(self, my_peer_id):
+        """
+        Envoie un FILE_LIST_REQUEST à tous les peers connus.
+        Utilisé notamment quand un nouveau peer rejoint le réseau.
+        """
+        from p2p_file_sharing.network.connection import TCPClient
+        from p2p_file_sharing.network.protocol import create_message, MessageType
+
+        peers = self._get_online_peers()
+        if not peers:
+            logger.info("No peers online to request file lists from")
+            return
+
+        message = create_message(
+            MessageType.FILE_LIST_REQUEST,
+            my_peer_id,
+            {},
+        )
+
+        for peer in peers:
+            if peer["peer_id"] == my_peer_id:
+                continue
+
+            client = TCPClient()
+            if not client.connect(peer["ip"], peer["port"]):
+                logger.warning(
+                    f"Could not connect to peer {peer['peer_id']} "
+                    f"at {peer['ip']}:{peer['port']}"
+                )
+                continue
+
+            try:
+                client.send_message(message)
+                logger.info(
+                    f"Requested file list from {peer['peer_id']} "
+                    f"({peer['ip']}:{peer['port']})"
+                )
+            finally:
+                client.close()
+
 def generate_peer_id() -> str:
     """Génère un ID unique pour ce peer"""
     hostname = socket.gethostname()
@@ -88,29 +182,26 @@ def main():
         print("✗ Core modules unavailable")
     
     if NETWORK_AVAILABLE and peer_manager:
-         # UDP Discovery avec callback peer_manager
+        # UDP Discovery avec callback peer_manager
         discovery = UDPDiscovery(peer_id, DISCOVERY_PORT)
         discovery.start_listening(peer_manager.handle_peer_announce)
         discovery.start_broadcasting()
-        
-       # Création d'une instance de MessageHandler pour router les messages TCP 
-        from p2p_file_sharing.network.message_handler import MessageHandler
+
+        # Création d'une instance de MessageHandler pour router les messages TCP
         message_handler = MessageHandler(peer_manager, file_manager)
-        
+
         # TCP Server avec handler messages
         def on_tcp_message(sender_peer_id, message):
             logger.info(f"TCP message from {sender_peer_id}: {message['type']}")
             # Router selon type
             message_handler.handle_message(sender_peer_id, message)
-        
+
         tcp_server = TCPServer(TRANSFER_PORT_START)
         tcp_server.start(on_tcp_message)
-        
-        # Créer NetworkHandler pour la GUI
-        from p2p_file_sharing.network.network_handler import NetworkHandler
-        network_handler = NetworkHandler(tcp_server, message_handler)
-        logger.info("Network handler created for GUI")
-        print("✓ Network handler ready")
+        message_handler.tcp_server = tcp_server
+
+        # Créer NetworkHandler pour la GUI (pull/push de listes de fichiers)
+        network_handler = NetworkHandler(peer_manager)
         
     # === Launch GUI ===
     logger.info("Launching GUI...")

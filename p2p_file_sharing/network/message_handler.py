@@ -8,16 +8,15 @@ logger = setup_logger(__name__)
 class MessageHandler:
     """Route les messages vers les handlers appropriés"""
 
-    def __init__(self, peer_manager, file_manager, connection=None):
+    def __init__(self, peer_manager, file_manager):
         """
         Args:
             peer_manager: Gestionnaire de peers
             file_manager: Gestionnaire de fichiers
-            connection: (optionnel) objet réseau exposant un tcp_server
         """
         self.peer_manager = peer_manager
         self.file_manager = file_manager
-        self.network = connection
+        self.tcp_server = None  # sera injecté par main.py une fois créé
 
     def handle_message(self, sender_peer_id, message):
         """
@@ -60,14 +59,11 @@ class MessageHandler:
             {"files": my_files},
         )
 
-        # Renvoyer spécifiquement au demandeur si la couche réseau est disponible
-        if self.network and hasattr(self.network, "tcp_server"):
-            self.network.tcp_server.send_to_peer(sender_peer_id, response)
+        # Renvoyer spécifiquement au demandeur via le TCPServer si disponible
+        if self.tcp_server:
+            self.tcp_server.send_to_peer(sender_peer_id, response)
         else:
-            logger.warning(
-                "No network context available to send file list response; "
-                "response will not be delivered"
-            )
+            logger.warning("No TCP server set on MessageHandler; cannot reply")
 
     def _handle_file_list_response(self, sender_peer_id, message):
         """Peer envoie sa liste de fichiers"""

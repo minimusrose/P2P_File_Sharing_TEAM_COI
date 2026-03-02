@@ -12,6 +12,7 @@ class MainWindow:
         self.peer_manager = peer_manager
         self.file_manager = file_manager
         self.network = network_handler
+        self._initial_file_request_done = False
         
         self.root = tk.Tk()
         self.root.title("P2P File Sharing")
@@ -313,6 +314,23 @@ class MainWindow:
         if not self.file_manager:
             self.root.after(3000, self.update_file_list)
             return
+
+        # Lors du premier rafraîchissement, si on a un réseau et un peer_id local,
+        # demander automatiquement la liste des fichiers aux autres peers.
+        if (
+            not self._initial_file_request_done
+            and self.network
+            and hasattr(self.network, "request_file_lists")
+            and self.peer_manager
+            and hasattr(self.peer_manager, "local_peer_id")
+        ):
+            try:
+                self.network.request_file_lists(self.peer_manager.local_peer_id)
+                logger.info("Initial FILE_LIST_REQUEST sent to peers")
+            except Exception as e:
+                logger.error(f"Error sending initial FILE_LIST_REQUEST: {e}")
+            finally:
+                self._initial_file_request_done = True
         
         # Clear tree
         for item in self.files_tree.get_children():
@@ -358,6 +376,18 @@ class MainWindow:
     def refresh_all(self):
         """Force le rafraîchissement de tout"""
         logger.info("Manual refresh triggered")
+        # En cas de refresh manuel, on redemande aussi les listes de fichiers
+        if (
+            self.network
+            and hasattr(self.network, "request_file_lists")
+            and self.peer_manager
+            and hasattr(self.peer_manager, "local_peer_id")
+        ):
+            try:
+                self.network.request_file_lists(self.peer_manager.local_peer_id)
+            except Exception as e:
+                logger.error(f"Error requesting file lists on refresh: {e}")
+
         self.update_peer_list()
         self.update_file_list()
     
