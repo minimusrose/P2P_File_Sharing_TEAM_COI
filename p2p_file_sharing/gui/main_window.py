@@ -75,7 +75,7 @@ class MainWindow:
         files_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # TreeView
-        columns = ("Nom", "Taille", "Propriétaire", "Chunks", "Statut")
+        columns = ("Sélection", "Nom", "Taille", "Propriétaire", "Chunks", "Statut")
         self.files_tree = ttk.Treeview(
             files_frame, 
             columns=columns,
@@ -84,6 +84,7 @@ class MainWindow:
         )
         
         # Headers (cliquables pour tri)
+        self.files_tree.heading("Sélection", text="☑️")
         self.files_tree.heading("Nom", text="Nom du fichier ▲▼", command=self.toggle_sort)
         self.files_tree.heading("Taille", text="Taille")
         self.files_tree.heading("Propriétaire", text="Propriétaire")
@@ -91,13 +92,17 @@ class MainWindow:
         self.files_tree.heading("Statut", text="Statut")
         
         # Colonnes width
-        self.files_tree.column("Nom", width=300)
+        self.files_tree.column("Sélection", width=50, anchor=tk.CENTER)
+        self.files_tree.column("Nom", width=250)
         self.files_tree.column("Taille", width=100)
         self.files_tree.column("Propriétaire", width=120)
         self.files_tree.column("Chunks", width=80)
         self.files_tree.column("Statut", width=120)
         
         self.files_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Handler de sélection pour afficher la checkbox
+        self.files_tree.bind('<<TreeviewSelect>>', self.on_file_select)
         
         # Scrollbar
         files_scrollbar = ttk.Scrollbar(
@@ -267,7 +272,7 @@ class MainWindow:
         
         # Récupérer infos fichier
         item = self.files_tree.item(selection[0])
-        filename = item['values'][0]
+        filename = item['values'][1]  # Index 1 car la colonne 0 est la checkbox
         file_id = item.get('tags', [''])[0] if item.get('tags') else None
         
         if not file_id:
@@ -402,7 +407,11 @@ class MainWindow:
                 
                 # Ajouter le peer local comme toujours disponible
                 if self.peer_manager and hasattr(self.peer_manager, 'local_peer_id'):
-                    online_peer_ids.add(self.peer_manager.local_peer_id)
+                    if self.peer_manager.local_peer_id:
+                        online_peer_ids.add(self.peer_manager.local_peer_id)
+                        logger.debug(f"Added local peer ID to online peers: {self.peer_manager.local_peer_id}")
+                    else:
+                        logger.warning("local_peer_id is None!")
                 
                 # Trier les fichiers par nom
                 if self.sort_order == "asc":
@@ -419,31 +428,33 @@ class MainWindow:
                     is_available = owner_id in online_peer_ids
                     status = "Disponible" if is_available else "Indisponible"
                     
-                    # Couleur selon disponibilité
+                    # Debug log pour les fichiers du propriétaire local
+                    if self.peer_manager and owner_id == self.peer_manager.local_peer_id:
+                        logger.debug(f"Local file: {file['filename']}, available={is_available}")
+                    
+                    # Insérer avec checkbox vide par défaut
                     item_id = self.files_tree.insert(
                         "", 
                         tk.END,
                         values=(
+                            "☐",  # Checkbox vide
                             file['filename'],
                             size_str,
                             owner_id[:12] + "..." if len(owner_id) > 12 else owner_id,
                             f"{file['chunks_total']} chunks",
                             status
                         ),
-                        tags=(file['file_id'], 'available' if is_available else 'unavailable')
+                        tags=(file['file_id'], 'unavailable' if not is_available else 'available')
                     )
-                    
-                    # Appliquer couleur
-                    if not is_available:
-                        self.files_tree.item(item_id, tags=('unavailable',))
                 
                 # Configurer les tags de couleur
                 self.files_tree.tag_configure('unavailable', foreground='gray')
+                self.files_tree.tag_configure('available', foreground='black')
             else:
                 # Données de test si pas de DB
                 test_files = [
-                    ("example.pdf", "2.5 MB", "peer_abc", "10 chunks", "Disponible"),
-                    ("music.mp3", "4.1 MB", "peer_xyz", "16 chunks", "Partiel 60%"),
+                    ("☐", "example.pdf", "2.5 MB", "peer_abc", "10 chunks", "Disponible"),
+                    ("☐", "music.mp3", "4.1 MB", "peer_xyz", "16 chunks", "Partiel 60%"),
                 ]
                 for file_data in test_files:
                     self.files_tree.insert("", tk.END, values=file_data)
@@ -486,6 +497,19 @@ class MainWindow:
         # Rafraîchir l'affichage avec le nouveau tri
         self.update_file_list()
     
+    def on_file_select(self, event):
+        """Gère la sélection d'un fichier (affiche une checkbox)"""
+        # Parcourir tous les items pour mettre à jour les checkboxes
+        for item in self.files_tree.get_children():
+            current_values = list(self.files_tree.item(item, 'values'))
+            if item in self.files_tree.selection():
+                # Item sélectionné - afficher checkbox cochée
+                current_values[0] = "☑️"
+            else:
+                # Item non sélectionné - afficher checkbox vide
+                current_values[0] = "☐"
+            self.files_tree.item(item, values=current_values)
+    
     def delete_file(self):
         """Supprime un fichier nous appartenant"""
         selection = self.files_tree.selection()
@@ -499,7 +523,7 @@ class MainWindow:
         
         # Récupérer infos fichier
         item = self.files_tree.item(selection[0])
-        filename = item['values'][0]
+        filename = item['values'][1]  # Index 1 car la colonne 0 est la checkbox
         file_id = item.get('tags', [''])[0] if item.get('tags') else None
         
         if not file_id:
