@@ -12,6 +12,7 @@ class PeerManager:
     def __init__(self, database):
         self.db = database
         self.local_peer_id = None
+        self.on_new_peer_callback = None  # Callback optionnel quand un nouveau peer est découvert
     
     def set_local_peer_id(self, peer_id: str):
         """Définit l'ID du peer local"""
@@ -25,8 +26,19 @@ class PeerManager:
         if peer_id == self.local_peer_id:
             return  # C'est nous, ignorer
         
-        logger.info(f"Peer announced: {peer_id} at {ip}:{port}")
+        # Vérifier si c'est un nouveau peer
+        existing_peers = self.get_online_peers()
+        is_new_peer = peer_id not in [p['peer_id'] for p in existing_peers]
+        
+        logger.info(f"Peer announced: {peer_id} at {ip}:{port} (new={is_new_peer})")
         self.add_peer(peer_id, ip, port)
+        
+        # Si c'est un nouveau peer, appeler le callback
+        if is_new_peer and self.on_new_peer_callback:
+            try:
+                self.on_new_peer_callback(peer_id, ip, port)
+            except Exception as e:
+                logger.error(f"Error in on_new_peer_callback: {e}")
     
     def add_peer(self, peer_id: str, ip: str, port: int) -> None:
         """Ajoute ou met à jour un peer"""

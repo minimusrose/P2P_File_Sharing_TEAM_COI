@@ -103,10 +103,14 @@ class NetworkHandler:
         from p2p_file_sharing.network.connection import TCPClient
         from p2p_file_sharing.network.protocol import create_message, MessageType
 
+        logger.info(f"Requesting file lists from all peers (my_peer_id={my_peer_id})")
+        
         peers = self._get_online_peers()
         if not peers:
             logger.info("No peers online to request file lists from")
             return
+        
+        logger.info(f"Found {len(peers)} online peers")
 
         message = create_message(
             MessageType.FILE_LIST_REQUEST,
@@ -114,6 +118,7 @@ class NetworkHandler:
             {},
         )
 
+        sent_count = 0
         for peer in peers:
             if peer["peer_id"] == my_peer_id:
                 continue
@@ -128,12 +133,14 @@ class NetworkHandler:
 
             try:
                 client.send_message(message)
-                logger.info(
-                    f"Requested file list from {peer['peer_id']} "
-                    f"({peer['ip']}:{peer['port']})"
-                )
+                sent_count += 1
+                logger.info(f"FILE_LIST_REQUEST sent to {peer['peer_id']}")
+            except Exception as e:
+                logger.error(f"Error sending FILE_LIST_REQUEST to {peer['peer_id']}: {e}")
             finally:
                 client.close()
+        
+        logger.info(f"FILE_LIST_REQUEST sent to {sent_count}/{len(peers)} peers")
 
 def generate_peer_id() -> str:
     """Génère un ID unique pour ce peer"""
@@ -186,6 +193,32 @@ def main():
         discovery = UDPDiscovery(peer_id, DISCOVERY_PORT)
         discovery.start_listening(peer_manager.handle_peer_announce)
         discovery.start_broadcasting()
+
+        # Créer NetworkHandler pour la GUI (pull/push de listes de fichiers)
+        network_handler = NetworkHandler(peer_manager)
+        
+        # Callback: quand un nouveau peer est découvert, lui demander sa liste de fichiers
+        def on_new_peer_discovered(peer_id_discovered, ip, port):
+            logger.info(f"New peer discovered: {peer_id_discovered}, requesting file list")
+            try:
+                from p2p_file_sharing.network.connection import TCPClient
+                from p2p_file_sharing.network.protocol import create_message, MessageType
+                
+                message = create_message(
+                    MessageType.FILE_LIST_REQUEST,
+                    peer_id,
+                    {},
+                )
+                
+                client = TCPClient()
+                if client.connect(ip, port):
+                    client.send_message(message)
+                    logger.info(f"FILE_LIST_REQUEST sent to new peer {peer_id_discovered}")
+                    client.close()
+            except Exception as e:
+                logger.error(f"Error requesting files from new peer: {e}")
+        
+        peer_manager.on_new_peer_callback = on_new_peer_discovered
 
         # Création d'une instance de MessageHandler pour router les messages TCP
         message_handler = MessageHandler(peer_manager, file_manager)

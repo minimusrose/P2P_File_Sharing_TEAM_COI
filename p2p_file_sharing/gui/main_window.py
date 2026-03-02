@@ -323,14 +323,14 @@ class MainWindow:
             and hasattr(self.network, "request_file_lists")
             and self.peer_manager
             and hasattr(self.peer_manager, "local_peer_id")
+            and self.peer_manager.local_peer_id is not None
         ):
             try:
                 self.network.request_file_lists(self.peer_manager.local_peer_id)
                 logger.info("Initial FILE_LIST_REQUEST sent to peers")
+                self._initial_file_request_done = True  # Marquer comme fait seulement si succès
             except Exception as e:
-                logger.error(f"Error sending initial FILE_LIST_REQUEST: {e}")
-            finally:
-                self._initial_file_request_done = True
+                logger.error(f"Error sending initial FILE_LIST_REQUEST: {e}", exc_info=True)
         
         # Clear tree
         for item in self.files_tree.get_children():

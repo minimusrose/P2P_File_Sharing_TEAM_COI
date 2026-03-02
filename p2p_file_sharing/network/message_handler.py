@@ -68,7 +68,13 @@ class MessageHandler:
     def _handle_file_list_response(self, sender_peer_id, message):
         """Peer envoie sa liste de fichiers"""
         file_list = message['data'].get('files', [])
-        logger.info(f"Received {len(file_list)} files from {sender_peer_id}")
+        logger.info(f"Received FILE_LIST_RESPONSE: {len(file_list)} files from {sender_peer_id}")
+        
+        if not file_list:
+            logger.warning(f"Peer {sender_peer_id} sent empty file list")
+        else:
+            logger.debug(f"Files from {sender_peer_id}: {[f.get('filename', 'unknown') for f in file_list]}")
+        
         self.peer_manager.update_peer_files(sender_peer_id, file_list)
     
     def _handle_chunk_request(self, sender_peer_id, message):
