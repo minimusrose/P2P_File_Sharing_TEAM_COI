@@ -184,30 +184,17 @@ class MainWindow:
         logger.info(f"Sharing file: {filepath}")
         
         try:
-            if self.file_manager:
-                file_id = self.file_manager.add_shared_file(filepath)
-                if file_id:
-                    self.status_var.set(f"Fichier partagé: {filepath}")
-                    messagebox.showinfo(
-                        "Succès", 
-                        f"Fichier partagé avec succès!\nID: {file_id}"
-                    )
-                    self.update_file_list()
-                else:
-                    messagebox.showerror("Erreur", "Échec du partage")
-            else:
-                messagebox.showwarning("Erreur", "File manager non disponible")
             if not self.file_manager:
                 messagebox.showwarning("Erreur", "File manager non disponible")
                 return
-            
+
             # 1. Ajouter le fichier côté core
             file_id = self.file_manager.add_shared_file(filepath)
             if not file_id:
                 messagebox.showerror("Erreur", "Échec du partage")
                 return
-            
-            # 2. Notifier la couche réseau pour broadcast
+
+            # 2. Notifier la couche réseau pour broadcast (si disponible)
             #    On s'attend à ce que network_handler expose une méthode
             #    pour déclencher le broadcast (par exemple: broadcast_my_files)
             if self.network and hasattr(self.network, "broadcast_my_files"):
@@ -217,22 +204,28 @@ class MainWindow:
                         file_list = self.file_manager.get_my_file_list()
                     else:
                         file_list = []
-                    
+
                     # Récupérer notre peer_id local via le peer_manager, si dispo
                     my_peer_id = None
-                    if self.peer_manager and hasattr(self.peer_manager, "local_peer_id"):
+                    if self.peer_manager and hasattr(
+                        self.peer_manager, "local_peer_id"
+                    ):
                         my_peer_id = self.peer_manager.local_peer_id
-                    
+
                     # L'objet network_handler devrait savoir accéder au tcp_server
                     # et utiliser message_handler.broadcast_my_files en interne.
                     self.network.broadcast_my_files(
                         my_peer_id=my_peer_id,
                         file_list=file_list,
-                                           )
-                    logger.info("Broadcast request for shared files sent to network layer")
+                    )
+                    logger.info(
+                        "Broadcast request for shared files sent to network layer"
+                    )
                 except Exception as e:
-                    logger.error(f"Error while broadcasting file list: {e}", exc_info=True)
-            
+                    logger.error(
+                        f"Error while broadcasting file list: {e}", exc_info=True
+                    )
+
             # 3. Feedback GUI
             self.status_var.set(f"Fichier partagé: {filepath}")
             messagebox.showinfo(
@@ -240,7 +233,7 @@ class MainWindow:
                 f"Fichier partagé!\nID: {file_id}",
             )
             self.update_file_list()
-        
+
         except Exception as e:
             logger.error(f"Share error: {e}", exc_info=True)
             messagebox.showerror("Erreur", f"Erreur lors du partage: {e}")
