@@ -110,28 +110,35 @@ class TCPServer:
             sock.close()
             logger.info(f"Client disconnected: {addr}")
     
-    def send_to_peer(self, peer_id: str, message: dict) -> bool:
+    def send_to_peer(self, peer_id: str, message) -> bool:
         """
-        Envoie un message ├á un peer connect├®
+        Envoie un message à un peer connecté
         
         Args:
             peer_id: ID du peer destination
-            message: Dict ├á envoyer
+            message: Dict ou bytes à envoyer
         
         Returns:
-            bool: True si envoy├® avec succ├¿s
+            bool: True si envoyé avec succès
         """
         if peer_id not in self.clients:
             logger.warning(f"Peer {peer_id} not connected")
             return False
         
         try:
-            data = json.dumps(message).encode('utf-8')
+            # Accepte dict ou bytes
+            if isinstance(message, bytes):
+                data = message
+                msg_type = "bytes"
+            else:
+                data = json.dumps(message).encode('utf-8')
+                msg_type = message.get('type', 'unknown')
+            
             size = len(data).to_bytes(4, 'big')
             
             sock = self.clients[peer_id]
             sock.sendall(size + data)
-            logger.debug(f"Message sent to {peer_id}: {message['type']}")
+            logger.debug(f"Message sent to {peer_id}: {msg_type}")
             return True
         except Exception as e:
             logger.error(f"Send error to {peer_id}: {e}")
