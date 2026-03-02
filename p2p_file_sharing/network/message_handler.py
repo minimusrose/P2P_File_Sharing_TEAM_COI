@@ -49,9 +49,11 @@ class MessageHandler:
 
         # Récupérer nos fichiers via le file_manager
         my_files = self.file_manager.get_my_file_list()
+        logger.info(f"Responding with {len(my_files)} files to {sender_peer_id}")
 
         # Créer le message de réponse
         from .protocol import create_message, MessageType as _MessageType
+        from .connection import TCPClient
 
         response = create_message(
             _MessageType.FILE_LIST_RESPONSE,
@@ -59,11 +61,26 @@ class MessageHandler:
             {"files": my_files},
         )
 
-        # Renvoyer spécifiquement au demandeur via le TCPServer si disponible
-        if self.tcp_server:
-            self.tcp_server.send_to_peer(sender_peer_id, response)
-        else:
-            logger.warning("No TCP server set on MessageHandler; cannot reply")
+        # Récupérer l'IP et le port du peer depuis la DB
+        peers = self.peer_manager.get_online_peers()
+        peer_info = next((p for p in peers if p['peer_id'] == sender_peer_id), None)
+        
+        if not peer_info:
+            logger.warning(f"Cannot find peer info for {sender_peer_id} to send response")
+            return
+        
+        # Ouvrir une nouvelle connexion pour envoyer la réponse
+        client = TCPClient()
+        try:
+            if client.connect(peer_info['ip'], peer_info['port']):
+                client.send_message(response)
+                logger.info(f"FILE_LIST_RESPONSE sent to {sender_peer_id} ({len(my_files)} files)")
+            else:
+                logger.warning(f"Could not connect to {sender_peer_id} to send response")
+        except Exception as e:
+            logger.error(f"Error sending FILE_LIST_RESPONSE to {sender_peer_id}: {e}")
+        finally:
+            client.close()
 
     def _handle_file_list_response(self, sender_peer_id, message):
         """Peer envoie sa liste de fichiers"""

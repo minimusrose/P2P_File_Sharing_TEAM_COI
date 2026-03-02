@@ -189,14 +189,6 @@ def main():
         print("✗ Core modules unavailable")
     
     if NETWORK_AVAILABLE and peer_manager:
-        # UDP Discovery avec callback peer_manager
-        discovery = UDPDiscovery(peer_id, DISCOVERY_PORT)
-        discovery.start_listening(peer_manager.handle_peer_announce)
-        discovery.start_broadcasting()
-
-        # Créer NetworkHandler pour la GUI (pull/push de listes de fichiers)
-        network_handler = NetworkHandler(peer_manager)
-        
         # Callback: quand un nouveau peer est découvert, lui demander sa liste de fichiers
         def on_new_peer_discovered(peer_id_discovered, ip, port):
             logger.info(f"New peer discovered: {peer_id_discovered}, requesting file list")
@@ -218,7 +210,13 @@ def main():
             except Exception as e:
                 logger.error(f"Error requesting files from new peer: {e}")
         
+        # Configurer le callback AVANT de démarrer le discovery
         peer_manager.on_new_peer_callback = on_new_peer_discovered
+        
+        # UDP Discovery avec callback peer_manager
+        discovery = UDPDiscovery(peer_id, DISCOVERY_PORT)
+        discovery.start_listening(peer_manager.handle_peer_announce)
+        discovery.start_broadcasting()
 
         # Création d'une instance de MessageHandler pour router les messages TCP
         message_handler = MessageHandler(peer_manager, file_manager)
