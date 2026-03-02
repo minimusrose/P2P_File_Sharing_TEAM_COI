@@ -185,12 +185,12 @@ class TCPClient:
             logger.error(f"Connection failed to {ip}:{port}: {e}")
             return False
     
-    def send_message(self, message: dict) -> bool:
+    def send_message(self, message) -> bool:
         """
         Envoie un message
         
         Args:
-            message: Dict à envoyer (doit avoir 'type', 'peer_id', 'data')
+            message: Dict ou bytes à envoyer
         
         Returns:
             bool: True si envoyé
@@ -200,119 +200,17 @@ class TCPClient:
             return False
         
         try:
-            data = json.dumps(message).encode('utf-8')
+            # Accepte dict ou bytes
+            if isinstance(message, bytes):
+                data = message
+                msg_type = "bytes"
+            else:
+                data = json.dumps(message).encode('utf-8')
+                msg_type = message.get('type', 'unknown')
+            
             size = len(data).to_bytes(4, 'big')
             self.sock.sendall(size + data)
-            logger.debug(f"Message sent: {message['type']}")
-            return True
-        except Exception as e:
-            logger.error(f"Send error: {e}")
-            self.connected = False
-            return False
-    
-    def receive_message(self, timeout=None) -> dict:
-        """
-        Reçoit un message (bloquant avec timeout optionnel)
-        
-        Args:
-            timeout: Secondes max (None = infini)
-        
-        Returns:
-            dict: Message reçu ou None si erreur/timeout
-        """
-        if not self.connected:
-            return None
-        
-        try:
-            if timeout:
-                self.sock.settimeout(timeout)
-            
-            # Recevoir taille
-            size_data = self.sock.recv(4)
-            if not size_data:
-                return None
-            
-            msg_size = int.from_bytes(size_data, 'big')
-            
-            # Recevoir message
-            data = b''
-            while len(data) < msg_size:
-                chunk = self.sock.recv(min(msg_size - len(data), 4096))
-                if not chunk:
-                    break
-                data += chunk
-            
-            if len(data) < msg_size:
-                return None
-            
-            return json.loads(data.decode('utf-8'))
-            
-        except socket.timeout:
-            logger.debug("Receive timeout")
-            return None
-        except Exception as e:
-            logger.error(f"Receive error: {e}")
-            self.connected = False
-            return None
-    
-    def close(self):
-        """Ferme la connexion"""
-        if self.sock:
-            try:
-                self.sock.close()
-            except:
-                pass
-            self.connected = False
-            logger.info("Connection closed")
-
-class TCPClient:
-    """Client TCP pour se connecter à un peer"""
-    
-    def __init__(self):
-        self.sock = None
-        self.connected = False
-        self.peer_id = None
-        
-    def connect(self, ip: str, port: int) -> bool:
-        """
-        Connecte à un peer
-        
-        Args:
-            ip: Adresse IP du peer
-            port: Port TCP
-        
-        Returns:
-            bool: True si connexion réussie
-        """
-        try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect((ip, port))
-            self.connected = True
-            logger.info(f"Connected to {ip}:{port}")
-            return True
-        except Exception as e:
-            logger.error(f"Connection failed to {ip}:{port}: {e}")
-            return False
-    
-    def send_message(self, message: dict) -> bool:
-        """
-        Envoie un message
-        
-        Args:
-            message: Dict à envoyer (doit avoir 'type', 'peer_id', 'data')
-        
-        Returns:
-            bool: True si envoyé
-        """
-        if not self.connected:
-            logger.warning("Not connected")
-            return False
-        
-        try:
-            data = json.dumps(message).encode('utf-8')
-            size = len(data).to_bytes(4, 'big')
-            self.sock.sendall(size + data)
-            logger.debug(f"Message sent: {message['type']}")
+            logger.debug(f"Message sent: {msg_type}")
             return True
         except Exception as e:
             logger.error(f"Send error: {e}")

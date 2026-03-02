@@ -4,7 +4,6 @@ from typing import Dict, Any
 
 class MessageType:
     """Types de messages échangés"""
-
     ANNOUNCE = "ANNOUNCE"
     FILE_LIST_REQUEST = "FILE_LIST_REQUEST"
     FILE_LIST_RESPONSE = "FILE_LIST_RESPONSE"
@@ -12,29 +11,24 @@ class MessageType:
     CHUNK_DATA = "CHUNK_DATA"
     GOODBYE = "GOODBYE"
 
-
-def create_message(msg_type: str, peer_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+def create_message(msg_type: str, peer_id: str, data: Dict[str, Any]) -> bytes:
     """
-    Crée un message au format dict prêt pour l'envoi.
-
-    NOTE IMPORTANTE:
-    - Le sérialisation JSON est gérée par TCPClient.send_message() et
-      TCPServer.send_to_peer(), donc cette fonction retourne un dict,
-      pas des bytes.
-
+    Crée un message JSON encodé en bytes
+    
     Args:
         msg_type: Type de message (voir MessageType)
         peer_id: ID du peer émetteur
         data: Données du message (dict)
-
+    
     Returns:
-        dict: Message sérialisable en JSON
+        bytes: Message encodé prêt à envoyer
     """
-    return {
+    message = {
         "type": msg_type,
         "peer_id": peer_id,
-        "data": data,
+        "data": data
     }
+    return json.dumps(message).encode('utf-8')
 
 def parse_message(raw_data: bytes) -> Dict[str, Any]:
     """
