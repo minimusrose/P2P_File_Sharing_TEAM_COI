@@ -192,17 +192,146 @@ class FileManager:
     
 
     def download_file(self, file_id: str, save_path: str, 
-                      progress_callback: Callable[[int], None]) -> None:
+                      progress_callback: Callable[[int], None],
+                      peer_manager) -> bool:
         """
-        Télécharge un fichier (sera complété lors de l'intégration)
+        Télécharge un fichier depuis le réseau
         
         Args:
             file_id: ID du fichier
             save_path: Où sauvegarder
             progress_callback: Fonction(percent) pour progression
+            peer_manager: PeerManager pour accéder aux peers
+        
+        Returns:
+            bool: True si succès
         """
-        # TODO: Implémenter lors de l'intégration avec network layer
-        logger.info(f"Download requested: {file_id} -> {save_path}")
-        pass
+        try:
+            logger.info(f"Starting download: {file_id} -> {save_path}")
+            
+            # 1. Récupérer infos fichier
+            file_info = self.db.get_file_by_id(file_id)
+            if not file_info:
+                logger.error(f"File {file_id} not found in database")
+                return False
+            
+            chunks_total = file_info['chunks_total']
+            expected_hash = file_info['hash']
+            logger.info(f"Downloading {file_info['filename']}: {chunks_total} chunks")
+            
+            # 2. Trouver le peer qui a le fichier (owner)
+            owner_peer_id = file_info['owner_peer_id']
+            peers = peer_manager.get_online_peers()
+            owner_peer = next((p for p in peers if p['peer_id'] == owner_peer_id), None)
+            
+            if not owner_peer:
+                logger.error(f"Owner peer {owner_peer_id} not online")
+                return False
+            
+            logger.info(f"Downloading from {owner_peer_id} at {owner_peer['ip']}:{owner_peer['port']}")
+            
+            # 3. Télécharger chaque chunk
+            chunks_data = []
+            for i in range(chunks_total):
+                logger.info(f"Requesting chunk {i+1}/{chunks_total}")
+                
+                chunk_data = self._request_chunk(
+                    owner_peer['ip'],
+                    owner_peer['port'],
+                    file_id,
+                    i,
+                    peer_manager.local_peer_id
+                )
+                
+                if not chunk_data:
+                    logger.error(f"Failed to download chunk {i}")
+                    return False
+                
+                chunks_data.append(chunk_data)
+                
+                # Mise à jour progression
+                percent = int((i + 1) / chunks_total * 100)
+                if progress_callback:
+                    progress_callback(percent)
+            
+            # 4. Assembler les chunks
+            logger.info(f"Assembling {len(chunks_data)} chunks...")
+            with open(save_path, 'wb') as f:
+                for chunk_data in chunks_data:
+                    f.write(chunk_data)
+            
+            # 5. Vérifier hash final
+            final_hash = self.calculate_file_hash(save_path)
+            
+            if final_hash == expected_hash:
+                logger.info(f"✓ File downloaded successfully: {save_path}")
+                logger.info(f"  Hash verified: {final_hash}")
+                return True
+            else:
+                logger.error(f"Hash mismatch!")
+                logger.error(f"  Expected: {expected_hash}")
+                logger.error(f"  Got:      {final_hash}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Download error: {e}", exc_info=True)
+            return False
+    
+    def _request_chunk(self, peer_ip: str, peer_port: int, file_id: str,
+                      chunk_index: int, my_peer_id: str) -> bytes:
+        """
+        Demande un chunk à un peer
+        
+        Returns:
+            bytes: Données du chunk ou None si erreur
+        """
+        from ..network.connection import TCPClient
+        from ..network.protocol import create_message, MessageType
+        
+        client = TCPClient()
+        try:
+            if not client.connect(peer_ip, peer_port):
+                logger.error(f"Cannot connect to {peer_ip}:{peer_port}")
+                return None
+            
+            # Envoyer requête
+            request = create_message(
+                MessageType.CHUNK_REQUEST,
+                my_peer_id,
+                {
+                    'file_id': file_id,
+                    'chunk_index': chunk_index
+                }
+            )
+            client.send_message(request)
+            logger.debug(f"CHUNK_REQUEST sent for chunk {chunk_index}")
+            
+            # Recevoir réponse
+            response = client.receive_message(timeout=30)
+            
+            if response and response['type'] == MessageType.CHUNK_DATA:
+                import base64
+                chunk_data = base64.b64decode(response['data']['chunk_data'])
+                chunk_hash = response['data']['hash']
+                
+                # Vérifier hash
+                import hashlib
+                actual_hash = hashlib.sha256(chunk_data).hexdigest()
+                
+                if actual_hash == chunk_hash:
+                    logger.debug(f"Chunk {chunk_index} received and verified")
+                    return chunk_data
+                else:
+                    logger.error(f"Chunk {chunk_index} hash mismatch")
+                    return None
+            else:
+                logger.error(f"Invalid response for chunk {chunk_index}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error requesting chunk {chunk_index}: {e}")
+            return None
+        finally:
+            client.close()
 
     

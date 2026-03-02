@@ -240,7 +240,7 @@ class MainWindow:
             messagebox.showerror("Erreur", f"Erreur lors du partage: {e}")
     
     def download_file(self):
-        """Télécharge le fichier sélectionné"""
+        """Télécharge le fichier sélectionné (avec thread)"""
         selection = self.files_tree.selection()
         
         if not selection:
@@ -269,15 +269,53 @@ class MainWindow:
         if not save_path:
             return
         
-        logger.info(f"Downloading: {filename} (ID: {file_id}) -> {save_path}")
+        logger.info(f"Starting download: {filename} (ID: {file_id}) -> {save_path}")
         self.dl_label.config(text=f"Téléchargement: {filename}")
         self.progress_bar['value'] = 0
         
-        # TODO: Implémenter téléchargement réel après intégration
-        messagebox.showinfo(
-            "Info", 
-            "Téléchargement démarré!\n(Fonctionnalité complète après intégration)"
-        )
+        # Progress callback (thread-safe)
+        def update_progress(percent):
+            self.root.after(0, lambda: self.progress_bar.configure(value=percent))
+            self.root.after(0, lambda: self.dl_label.configure(text=f"Téléchargement: {filename} - {percent}%"))
+        
+        # Download dans thread séparé pour ne pas bloquer GUI
+        import threading
+        def download_thread():
+            try:
+                if not self.file_manager or not self.peer_manager:
+                    raise Exception("File manager ou peer manager non disponible")
+                
+                success = self.file_manager.download_file(
+                    file_id,
+                    save_path,
+                    update_progress,
+                    self.peer_manager
+                )
+                
+                if success:
+                    self.root.after(0, lambda: messagebox.showinfo(
+                        "Succès",
+                        f"Fichier téléchargé avec succès!\n\n{save_path}"
+                    ))
+                    self.root.after(0, lambda: self.dl_label.configure(text="Téléchargement terminé ✓"))
+                else:
+                    self.root.after(0, lambda: messagebox.showerror(
+                        "Erreur",
+                        "Échec du téléchargement.\nVérifiez les logs pour plus de détails."
+                    ))
+                    self.root.after(0, lambda: self.dl_label.configure(text="Échec du téléchargement ✗"))
+            except Exception as e:
+                logger.error(f"Download thread error: {e}", exc_info=True)
+                self.root.after(0, lambda: messagebox.showerror(
+                    "Erreur",
+                    f"Erreur lors du téléchargement:\n{str(e)}"
+                ))
+                self.root.after(0, lambda: self.dl_label.configure(text="Erreur"))
+        
+        # Démarrer le thread
+        t = threading.Thread(target=download_thread, daemon=True)
+        t.start()
+        logger.info("Download thread started")
     
     def update_peer_list(self):
         """Rafraîchit la liste des peers"""

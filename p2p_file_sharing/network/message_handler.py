@@ -96,13 +96,84 @@ class MessageHandler:
     
     def _handle_chunk_request(self, sender_peer_id, message):
         """Peer demande un chunk"""
-        logger.info(f"Chunk requested by {sender_peer_id}")
-        # TODO: Envoyer chunk
+        file_id = message['data'].get('file_id')
+        chunk_index = message['data'].get('chunk_index')
+        
+        logger.info(f"Chunk {chunk_index} of {file_id} requested by {sender_peer_id}")
+        
+        # Récupérer le fichier local
+        local_files = self.file_manager.db.get_local_shared_files()
+        local_file = None
+        for f in local_files:
+            if f['file_id'] == file_id:
+                local_file = f
+                break
+        
+        if not local_file:
+            logger.error(f"File {file_id} not found locally")
+            return
+        
+        try:
+            # Charger le chunk depuis le fichier
+            import base64
+            from pathlib import Path
+            
+            filepath = local_file['filepath']
+            chunk_size = 256 * 1024  # 256 KB
+            
+            with open(filepath, 'rb') as f:
+                f.seek(chunk_index * chunk_size)
+                chunk_data = f.read(chunk_size)
+            
+            # Calculer hash du chunk
+            import hashlib
+            chunk_hash = hashlib.sha256(chunk_data).hexdigest()
+            
+            # Encoder en base64 pour transport JSON
+            chunk_data_b64 = base64.b64encode(chunk_data).decode('utf-8')
+            
+            # Créer réponse
+            from .protocol import create_message, MessageType as _MT
+            from .connection import TCPClient
+            
+            response = create_message(
+                _MT.CHUNK_DATA,
+                self.peer_manager.local_peer_id,
+                {
+                    'file_id': file_id,
+                    'chunk_index': chunk_index,
+                    'chunk_data': chunk_data_b64,
+                    'hash': chunk_hash
+                }
+            )
+            
+            # Récupérer l'IP du peer demandeur
+            peers = self.peer_manager.get_online_peers()
+            peer_info = next((p for p in peers if p['peer_id'] == sender_peer_id), None)
+            
+            if peer_info:
+                client = TCPClient()
+                try:
+                    if client.connect(peer_info['ip'], peer_info['port']):
+                        client.send_message(response)
+                        logger.info(f"Chunk {chunk_index} sent to {sender_peer_id}")
+                    else:
+                        logger.warning(f"Could not connect to {sender_peer_id}")
+                except Exception as e:
+                    logger.error(f"Error sending chunk: {e}")
+                finally:
+                    client.close()
+            else:
+                logger.warning(f"Peer {sender_peer_id} info not found")
+                
+        except Exception as e:
+            logger.error(f"Error handling chunk request: {e}", exc_info=True)
     
     def _handle_chunk_data(self, sender_peer_id, message):
         """Peer envoie un chunk"""
-        logger.info(f"Chunk received from {sender_peer_id}")
-        # TODO: Stocker chunk
+        chunk_index = message['data'].get('chunk_index')
+        logger.info(f"Chunk {chunk_index} received from {sender_peer_id}")
+        # Note: Les chunks seront gérés directement dans download_file() pour éviter la complexité
 
     def broadcast_my_files(self, tcp_server, my_peer_id, file_list):
         """
