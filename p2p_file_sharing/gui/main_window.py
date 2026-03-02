@@ -13,6 +13,7 @@ class MainWindow:
         self.file_manager = file_manager
         self.network = network_handler
         self._initial_file_request_done = False
+        self.sort_order = "asc"  # "asc" ou "desc"
         
         self.root = tk.Tk()
         self.root.title("P2P File Sharing")
@@ -82,8 +83,8 @@ class MainWindow:
             height=10
         )
         
-        # Headers
-        self.files_tree.heading("Nom", text="Nom du fichier")
+        # Headers (cliquables pour tri)
+        self.files_tree.heading("Nom", text="Nom du fichier ▲▼", command=self.toggle_sort)
         self.files_tree.heading("Taille", text="Taille")
         self.files_tree.heading("Propriétaire", text="Propriétaire")
         self.files_tree.heading("Chunks", text="Chunks")
@@ -131,6 +132,20 @@ class MainWindow:
             command=self.refresh_all
         )
         self.btn_refresh.pack(side=tk.LEFT, padx=5)
+        
+        self.btn_sort = ttk.Button(
+            btn_frame,
+            text="🔤 Trier A-Z",
+            command=self.toggle_sort
+        )
+        self.btn_sort.pack(side=tk.LEFT, padx=5)
+        
+        self.btn_delete = ttk.Button(
+            btn_frame,
+            text="🗑️ Supprimer",
+            command=self.delete_file
+        )
+        self.btn_delete.pack(side=tk.LEFT, padx=5)
         
         # === Bottom: Downloads ===
         dl_frame = ttk.LabelFrame(
@@ -379,23 +394,51 @@ class MainWindow:
             if hasattr(self.file_manager, 'db') and self.file_manager.db:
                 files = self.file_manager.db.get_all_files()
                 
+                # Récupérer la liste des peers en ligne
+                online_peers = []
+                if self.peer_manager:
+                    online_peers = self.peer_manager.get_online_peers()
+                online_peer_ids = {p['peer_id'] for p in online_peers}
+                
+                # Ajouter le peer local comme toujours disponible
+                if self.peer_manager and hasattr(self.peer_manager, 'local_peer_id'):
+                    online_peer_ids.add(self.peer_manager.local_peer_id)
+                
+                # Trier les fichiers par nom
+                if self.sort_order == "asc":
+                    files = sorted(files, key=lambda f: f['filename'].lower())
+                else:
+                    files = sorted(files, key=lambda f: f['filename'].lower(), reverse=True)
+                
                 for file in files:
                     size_mb = file['size'] / (1024 * 1024)
                     size_str = f"{size_mb:.2f} MB" if size_mb >= 1 else f"{file['size']/1024:.0f} KB"
                     
-                    # Insérer avec file_id en tag
-                    self.files_tree.insert(
+                    # Vérifier si le peer propriétaire est en ligne
+                    owner_id = file['owner_peer_id']
+                    is_available = owner_id in online_peer_ids
+                    status = "Disponible" if is_available else "Indisponible"
+                    
+                    # Couleur selon disponibilité
+                    item_id = self.files_tree.insert(
                         "", 
                         tk.END,
                         values=(
                             file['filename'],
                             size_str,
-                            file['owner_peer_id'][:12] + "..." if len(file['owner_peer_id']) > 12 else file['owner_peer_id'],
+                            owner_id[:12] + "..." if len(owner_id) > 12 else owner_id,
                             f"{file['chunks_total']} chunks",
-                            "Disponible"
+                            status
                         ),
-                        tags=(file['file_id'],)
+                        tags=(file['file_id'], 'available' if is_available else 'unavailable')
                     )
+                    
+                    # Appliquer couleur
+                    if not is_available:
+                        self.files_tree.item(item_id, tags=('unavailable',))
+                
+                # Configurer les tags de couleur
+                self.files_tree.tag_configure('unavailable', foreground='gray')
             else:
                 # Données de test si pas de DB
                 test_files = [
@@ -428,6 +471,83 @@ class MainWindow:
 
         self.update_peer_list()
         self.update_file_list()
+    
+    def toggle_sort(self):
+        """Bascule le tri alphabétique entre ascendant et descendant"""
+        if self.sort_order == "asc":
+            self.sort_order = "desc"
+            self.btn_sort.configure(text="🔤 Trier Z-A")
+            logger.info("Sort order: descending (Z-A)")
+        else:
+            self.sort_order = "asc"
+            self.btn_sort.configure(text="🔤 Trier A-Z")
+            logger.info("Sort order: ascending (A-Z)")
+        
+        # Rafraîchir l'affichage avec le nouveau tri
+        self.update_file_list()
+    
+    def delete_file(self):
+        """Supprime un fichier nous appartenant"""
+        selection = self.files_tree.selection()
+        
+        if not selection:
+            messagebox.showwarning(
+                "Attention", 
+                "Veuillez sélectionner un fichier à supprimer"
+            )
+            return
+        
+        # Récupérer infos fichier
+        item = self.files_tree.item(selection[0])
+        filename = item['values'][0]
+        file_id = item.get('tags', [''])[0] if item.get('tags') else None
+        
+        if not file_id:
+            messagebox.showerror("Erreur", "ID fichier introuvable")
+            return
+        
+        # Récupérer les détails du fichier depuis la DB
+        try:
+            file_info = self.file_manager.db.get_file_by_id(file_id)
+            if not file_info:
+                messagebox.showerror("Erreur", "Fichier introuvable dans la base de données")
+                return
+            
+            # Vérifier que le fichier nous appartient
+            if not self.peer_manager or not hasattr(self.peer_manager, 'local_peer_id'):
+                messagebox.showerror("Erreur", "Impossible de vérifier le propriétaire")
+                return
+            
+            if file_info['owner_peer_id'] != self.peer_manager.local_peer_id:
+                messagebox.showerror(
+                    "Erreur", 
+                    "Vous ne pouvez supprimer que vos propres fichiers"
+                )
+                return
+            
+            # Demander confirmation
+            confirm = messagebox.askyesno(
+                "Confirmation",
+                f"Voulez-vous vraiment supprimer '{filename}' ?\n\n"
+                f"⚠️ Cette action est irréversible.\n"
+                f"Le fichier sera retiré du réseau P2P."
+            )
+            
+            if not confirm:
+                return
+            
+            # Supprimer de la base de données
+            self.file_manager.db.delete_file(file_id)
+            logger.info(f"File deleted from database: {filename} ({file_id})")
+            
+            # Rafraîchir l'affichage
+            self.update_file_list()
+            self.status_var.set(f"Fichier supprimé: {filename}")
+            messagebox.showinfo("Succès", f"Fichier '{filename}' supprimé avec succès")
+            
+        except Exception as e:
+            logger.error(f"Delete error: {e}", exc_info=True)
+            messagebox.showerror("Erreur", f"Erreur lors de la suppression: {e}")
     
     def run(self):
         """Lance la boucle d'événements tkinter"""

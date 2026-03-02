@@ -139,6 +139,16 @@ class Database:
         cursor.execute('SELECT * FROM files ORDER BY created_at DESC')
         return [dict(row) for row in cursor.fetchall()]
     
+    def delete_file(self, file_id: str):
+        """Supprime un fichier et ses chunks associés"""
+        cursor = self.conn.cursor()
+        # Supprimer les chunks associés
+        cursor.execute('DELETE FROM chunks WHERE file_id = ?', (file_id,))
+        # Supprimer le fichier
+        cursor.execute('DELETE FROM files WHERE file_id = ?', (file_id,))
+        self.conn.commit()
+        logger.debug(f"File deleted: {file_id}")
+    
     # === CHUNKS ===
     
     def add_chunk(self, chunk_id: str, file_id: str, chunk_index: int,
