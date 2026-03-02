@@ -222,6 +222,18 @@ def main():
         peer_manager = PeerManager(db)
         peer_manager.set_local_peer_id(peer_id)
         file_manager = FileManager(db)
+        file_manager.set_local_peer_id(peer_id)  # Définir le peer_id pour les fichiers partagés
+        
+        # Migration: Corriger les anciens fichiers avec owner_peer_id="local"
+        try:
+            cursor = db.conn.cursor()
+            cursor.execute('UPDATE files SET owner_peer_id = ? WHERE owner_peer_id = "local"', (peer_id,))
+            updated_count = cursor.rowcount
+            db.conn.commit()
+            if updated_count > 0:
+                logger.info(f"Migrated {updated_count} files from 'local' to actual peer_id: {peer_id}")
+        except Exception as e:
+            logger.error(f"Error migrating local files: {e}")
     else:
         logger.warning("Core modules not available")
         print("✗ Core modules unavailable")

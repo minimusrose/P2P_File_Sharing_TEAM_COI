@@ -13,6 +13,12 @@ class FileManager:
     def __init__(self, database=None):
         self.db = database
         self.shared_files = {}  # file_id -> filepath
+        self.local_peer_id = "local"  # Par défaut, sera mis à jour
+    
+    def set_local_peer_id(self, peer_id: str):
+        """Définit l'ID du peer local"""
+        self.local_peer_id = peer_id
+        logger.info(f"FileManager: local_peer_id set to {peer_id}")
     
     def calculate_file_hash(self, filepath: str) -> str:
         """
@@ -152,7 +158,7 @@ class FileManager:
                     filename=path.name,
                     size=file_size,
                     hash=file_hash,
-                    owner_peer_id="local",  # Sera mis à jour
+                    owner_peer_id=self.local_peer_id,  # Utilise le peer_id local
                     chunks_total=chunks_total
                 )
                 self.db.add_local_shared(file_id, filepath)

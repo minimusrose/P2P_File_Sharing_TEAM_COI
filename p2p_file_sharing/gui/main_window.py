@@ -390,6 +390,13 @@ class MainWindow:
             except Exception as e:
                 logger.error(f"Error sending initial FILE_LIST_REQUEST: {e}", exc_info=True)
         
+        # Sauvegarder la sélection actuelle avant de clear
+        selected_file_ids = []
+        for item in self.files_tree.selection():
+            tags = self.files_tree.item(item, 'tags')
+            if tags:
+                selected_file_ids.append(tags[0])  # Le file_id est dans le premier tag
+        
         # Clear tree
         for item in self.files_tree.get_children():
             self.files_tree.delete(item)
@@ -419,18 +426,28 @@ class MainWindow:
                 else:
                     files = sorted(files, key=lambda f: f['filename'].lower(), reverse=True)
                 
+                # Dictionnaire pour mapper file_id -> item_id (pour restaurer la sélection)
+                file_id_to_item = {}
+                
                 for file in files:
                     size_mb = file['size'] / (1024 * 1024)
                     size_str = f"{size_mb:.2f} MB" if size_mb >= 1 else f"{file['size']/1024:.0f} KB"
                     
                     # Vérifier si le peer propriétaire est en ligne
                     owner_id = file['owner_peer_id']
-                    is_available = owner_id in online_peer_ids
+                    
+                    # IMPORTANT: Vérifier si c'est un fichier local
+                    # Solution au problème 1: Les fichiers avec owner_id == local_peer_id ou "local" sont toujours disponibles
+                    is_local_file = False
+                    if self.peer_manager and hasattr(self.peer_manager, 'local_peer_id'):
+                        is_local_file = (owner_id == self.peer_manager.local_peer_id) or (owner_id == "local")
+                    
+                    is_available = is_local_file or (owner_id in online_peer_ids)
                     status = "Disponible" if is_available else "Indisponible"
                     
                     # Debug log pour les fichiers du propriétaire local
-                    if self.peer_manager and owner_id == self.peer_manager.local_peer_id:
-                        logger.debug(f"Local file: {file['filename']}, available={is_available}")
+                    if is_local_file:
+                        logger.debug(f"Local file: {file['filename']}, owner_id={owner_id}, available={is_available}")
                     
                     # Insérer avec checkbox vide par défaut
                     item_id = self.files_tree.insert(
@@ -446,6 +463,20 @@ class MainWindow:
                         ),
                         tags=(file['file_id'], 'unavailable' if not is_available else 'available')
                     )
+                    
+                    # Enregistrer le mapping file_id -> item_id
+                    file_id_to_item[file['file_id']] = item_id
+                
+                # Restaurer la sélection précédente
+                # Solution au problème 2: maintenir la sélection malgré les rafraîchissements
+                for file_id in selected_file_ids:
+                    if file_id in file_id_to_item:
+                        item_id = file_id_to_item[file_id]
+                        self.files_tree.selection_add(item_id)
+                        # Mettre à jour la checkbox pour les items sélectionnés
+                        current_values = list(self.files_tree.item(item_id, 'values'))
+                        current_values[0] = "☑️"
+                        self.files_tree.item(item_id, values=current_values)
                 
                 # Configurer les tags de couleur
                 self.files_tree.tag_configure('unavailable', foreground='gray')
