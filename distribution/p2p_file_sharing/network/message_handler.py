@@ -1,0 +1,240 @@
+"""Gestion des messages reçus"""
+from .protocol import MessageType
+from ..utils.logger import setup_logger
+
+logger = setup_logger(__name__)
+
+
+class MessageHandler:
+    """Route les messages vers les handlers appropriés"""
+
+    def __init__(self, peer_manager, file_manager):
+        """
+        Args:
+            peer_manager: Gestionnaire de peers
+            file_manager: Gestionnaire de fichiers
+        """
+        self.peer_manager = peer_manager
+        self.file_manager = file_manager
+        self.tcp_server = None  # sera injecté par main.py une fois créé
+
+    def handle_message(self, sender_peer_id, message):
+        """
+        Route un message vers le bon handler
+
+        Args:
+            sender_peer_id: ID du peer émetteur
+            message: Dict avec 'type', 'peer_id', 'data'
+        """
+        msg_type = message.get("type")
+        
+        # Mettre à jour last_seen du peer pour le garder actif
+        # Important: maintient le peer en ligne même sans broadcasts UDP
+        if self.peer_manager and hasattr(self.peer_manager, 'db') and self.peer_manager.db:
+            try:
+                # Récupérer l'info du peer pour garder son IP/port
+                peers = self.peer_manager.get_online_peers(timeout=3600)  # Large timeout pour chercher
+                peer_info = next((p for p in peers if p['peer_id'] == sender_peer_id), None)
+                if peer_info:
+                    # Re-add le peer pour mettre à jour last_seen
+                    self.peer_manager.add_peer(sender_peer_id, peer_info['ip'], peer_info['port'])
+                    logger.debug(f"Updated last_seen for peer {sender_peer_id}")
+            except Exception as e:
+                logger.debug(f"Could not update last_seen for {sender_peer_id}: {e}")
+
+        if msg_type == MessageType.FILE_LIST_REQUEST:
+            return self._handle_file_list_request(sender_peer_id, message)
+        elif msg_type == MessageType.FILE_LIST_RESPONSE:
+            return self._handle_file_list_response(sender_peer_id, message)
+        elif msg_type == MessageType.CHUNK_REQUEST:
+            return self._handle_chunk_request(sender_peer_id, message)
+        elif msg_type == MessageType.CHUNK_DATA:
+            return self._handle_chunk_data(sender_peer_id, message)
+        else:
+            logger.warning(f"Unknown message type: {msg_type}")
+
+    def _handle_file_list_request(self, sender_peer_id, message):
+        """Peer demande notre liste de fichiers"""
+        logger.info(f"File list requested by {sender_peer_id}")
+
+        if not hasattr(self.file_manager, "get_my_file_list"):
+            logger.error("FileManager does not support get_my_file_list()")
+            return
+
+        # Récupérer nos fichiers via le file_manager
+        my_files = self.file_manager.get_my_file_list()
+        logger.info(f"Responding with {len(my_files)} files to {sender_peer_id}")
+
+        # Créer le message de réponse (dict, pas bytes)
+        response = {
+            'type': 'FILE_LIST_RESPONSE',
+            'peer_id': self.peer_manager.local_peer_id,
+            'data': {'files': my_files}
+        }
+
+        # OPTION 1: Utiliser la connexion TCP existante si disponible
+        if self.tcp_server and sender_peer_id in self.tcp_server.clients:
+            success = self.tcp_server.send_to_peer(sender_peer_id, response)
+            if success:
+                logger.info(f"FILE_LIST_RESPONSE sent to {sender_peer_id} via existing connection ({len(my_files)} files)")
+                return
+            else:
+                logger.warning(f"Failed to send via existing connection to {sender_peer_id}")
+        
+        # OPTION 2: Essayer de se connecter si on connait son adresse
+        from .connection import TCPClient
+        peers = self.peer_manager.get_online_peers()
+        peer_info = next((p for p in peers if p['peer_id'] == sender_peer_id), None)
+        
+        if not peer_info:
+            logger.warning(f"Cannot find peer info for {sender_peer_id} and no active connection - cannot respond")
+            return
+        
+        # Ouvrir une nouvelle connexion pour envoyer la réponse
+        client = TCPClient()
+        try:
+            if client.connect(peer_info['ip'], peer_info['port']):
+                client.send_message(response)
+                logger.info(f"FILE_LIST_RESPONSE sent to {sender_peer_id} via new connection ({len(my_files)} files)")
+            else:
+                logger.warning(f"Could not connect to {sender_peer_id} to send response")
+        except Exception as e:
+            logger.error(f"Error sending FILE_LIST_RESPONSE to {sender_peer_id}: {e}")
+        finally:
+            client.close()
+
+    def _handle_file_list_response(self, sender_peer_id, message):
+        """Peer envoie sa liste de fichiers"""
+        file_list = message['data'].get('files', [])
+        logger.info(f"Received FILE_LIST_RESPONSE: {len(file_list)} files from {sender_peer_id}")
+        
+        if not file_list:
+            logger.warning(f"Peer {sender_peer_id} sent empty file list")
+        else:
+            logger.debug(f"Files from {sender_peer_id}: {[f.get('filename', 'unknown') for f in file_list]}")
+        
+        self.peer_manager.update_peer_files(sender_peer_id, file_list)
+    
+    def _handle_chunk_request(self, sender_peer_id, message):
+        """Peer demande un chunk"""
+        file_id = message['data'].get('file_id')
+        chunk_index = message['data'].get('chunk_index')
+        
+        logger.info(f"Chunk {chunk_index} of {file_id} requested by {sender_peer_id}")
+        
+        # Récupérer le fichier local
+        local_files = self.file_manager.db.get_local_shared_files()
+        local_file = None
+        for f in local_files:
+            if f['file_id'] == file_id:
+                local_file = f
+                break
+        
+        if not local_file:
+            logger.error(f"File {file_id} not found locally")
+            return
+        
+        try:
+            # Charger le chunk depuis le fichier
+            import base64
+            
+            filepath = local_file['filepath']
+            chunk_size = 256 * 1024  # 256 KB
+            
+            with open(filepath, 'rb') as f:
+                f.seek(chunk_index * chunk_size)
+                chunk_data = f.read(chunk_size)
+            
+            # Calculer hash du chunk
+            import hashlib
+            chunk_hash = hashlib.sha256(chunk_data).hexdigest()
+            
+            # Encoder en base64 pour transport JSON
+            chunk_data_b64 = base64.b64encode(chunk_data).decode('utf-8')
+            
+            logger.info(f"Chunk {chunk_index}: {len(chunk_data)} bytes, hash={chunk_hash[:8]}...")
+            
+            # Créer réponse (message dict, pas bytes)
+            response = {
+                'type': 'CHUNK_DATA',
+                'peer_id': self.peer_manager.local_peer_id,
+                'data': {
+                    'file_id': file_id,
+                    'chunk_index': chunk_index,
+                    'chunk_data': chunk_data_b64,
+                    'hash': chunk_hash
+                }
+            }
+            
+            # Envoyer via TCPServer sur la connexion existante
+            if self.tcp_server:
+                success = self.tcp_server.send_to_peer(sender_peer_id, response)
+                if success:
+                    logger.info(f"Chunk {chunk_index} sent to {sender_peer_id} via existing connection")
+                else:
+                    logger.error(f"Failed to send chunk {chunk_index} to {sender_peer_id}")
+            else:
+                logger.error("No TCP server available to send chunk")
+                
+        except Exception as e:
+            logger.error(f"Error handling chunk request: {e}", exc_info=True)
+    
+    def _handle_chunk_data(self, sender_peer_id, message):
+        """Peer envoie un chunk"""
+        chunk_index = message['data'].get('chunk_index')
+        logger.info(f"Chunk {chunk_index} received from {sender_peer_id}")
+        # Note: Les chunks seront gérés directement dans download_file() pour éviter la complexité
+
+    def broadcast_my_files(self, tcp_server, my_peer_id, file_list):
+        """
+        Broadcast notre liste de fichiers à tous les peers
+        
+        Args:
+            tcp_server: Instance TCPServer (peut être None)
+            my_peer_id: Notre ID
+            file_list: Liste fichiers à envoyer
+        """
+        from .protocol import create_message, MessageType
+        from .connection import TCPClient
+        
+        message = create_message(
+            MessageType.FILE_LIST_RESPONSE,
+            my_peer_id,
+            {"files": file_list},
+        )
+        
+        # Récupérer tous les peers actifs de la base de données
+        if not self.peer_manager or not hasattr(self.peer_manager, 'get_online_peers'):
+            logger.warning("Cannot broadcast: peer_manager not available")
+            return
+        
+        online_peers = self.peer_manager.get_online_peers()
+        sent_count = 0
+        
+        for peer_data in online_peers:
+            peer_id = peer_data['peer_id']
+            ip = peer_data['ip']
+            port = peer_data['port']
+            
+            # Option 1: Utiliser connexion existante si disponible
+            if tcp_server and peer_id in tcp_server.clients:
+                try:
+                    tcp_server.send_to_peer(peer_id, message)
+                    sent_count += 1
+                    logger.debug(f"Sent via persistent connection to {peer_id}")
+                    continue
+                except Exception as e:
+                    logger.warning(f"Failed to send via persistent connection: {e}")
+            
+            # Option 2: Créer connexion temporaire pour envoyer
+            client = TCPClient()
+            try:
+                if client.connect(ip, port):
+                    if client.send_message(message):
+                        sent_count += 1
+                        logger.debug(f"Sent via new connection to {peer_id} at {ip}:{port}")
+                    client.close()
+            except Exception as e:
+                logger.error(f"Failed to broadcast to {peer_id} at {ip}:{port}: {e}")
+        
+        logger.info(f"Broadcasted {len(file_list)} files to {sent_count}/{len(online_peers)} peers")

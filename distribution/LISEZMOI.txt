@@ -1,0 +1,162 @@
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║           P2P FILE SHARING - DOSSIER DE DISTRIBUTION         ║
+║                      Équipe COI - 2026                      ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Bienvenue dans le dossier de distribution du système P2P File Sharing !
+
+═══════════════════════════════════════════════════════════════════
+
+📦 CONTENU DU DOSSIER
+═══════════════════════════════════════════════════════════════════
+
+📁 p2p_file_sharing/    → Code source de l'application
+📄 main.py              → Point d'entrée du programme
+
+🪟 Scripts Windows:
+   • install.bat        → Installation automatique
+   • run.bat            → Lancer l'application (sans console)
+   • run_debug.bat      → Lancer en mode debug (avec console)
+   • uninstall.bat      → Désinstaller (supprimer données)
+
+🐧 Scripts Linux:
+   • install.sh         → Installation automatique
+   • run.sh             → Lancer l'application
+   • uninstall.sh       → Désinstaller (supprimer données)
+
+📚 Documentation:
+   • requirements.txt   → Dépendances (uniquement stdlib Python)
+
+═══════════════════════════════════════════════════════════════════
+
+🚀 DÉMARRAGE RAPIDE
+═══════════════════════════════════════════════════════════════════
+
+WINDOWS:
+--------
+1. Double-cliquez sur: install.bat
+2. Attendez la fin de l'installation
+3. Double-cliquez sur: run.bat
+4. L'application démarre !
+
+LINUX:
+------
+1. Ouvrez un terminal dans ce dossier
+2. Tapez: chmod +x install.sh && ./install.sh
+3. Tapez: ./run.sh
+4. L'application démarre !
+
+═══════════════════════════════════════════════════════════════════
+
+📋 PRÉREQUIS
+═══════════════════════════════════════════════════════════════════
+
+✅ Python 3.9 ou supérieur
+✅ Même réseau local (WiFi/Ethernet) que les autres peers
+✅ Windows 10+ ou Linux (Ubuntu, Fedora, etc.)
+
+Si Python n'est pas installé:
+→ Téléchargez depuis: https://www.python.org/downloads/
+→ IMPORTANT: Cochez "Add Python to PATH" lors de l'installation !
+
+═══════════════════════════════════════════════════════════════════
+
+🔥 UTILISATION
+═══════════════════════════════════════════════════════════════════
+
+1. PARTAGER UN FICHIER:
+   • Cliquez sur "Partager fichier"
+   • Sélectionnez le fichier à partager
+   • Les autres peers le verront automatiquement
+
+2. TÉLÉCHARGER UN FICHIER:
+   • Sélectionnez un fichier dans la liste
+   • Cliquez sur "Télécharger"
+   • Choisissez où l'enregistrer
+   • Attendez la fin du téléchargement
+
+3. VOIR LES PEERS CONNECTÉS:
+   • La liste se met à jour automatiquement
+   • Les peers apparaissent après quelques secondes
+
+═══════════════════════════════════════════════════════════════════
+
+🔧 DÉPANNAGE
+═══════════════════════════════════════════════════════════════════
+
+❌ Les peers ne se voient pas?
+   → Vérifiez que vous êtes sur le même réseau WiFi/Ethernet
+   → Désactivez temporairement le pare-feu pour tester
+   → Windows: Autorisez Python dans le Pare-feu Windows
+
+❌ L'application ne démarre pas?
+   → Lancez run_debug.bat (Windows) pour voir les erreurs
+   → Vérifiez les logs dans le dossier data/p2p.log
+   → Assurez-vous que Python 3.9+ est installé
+
+❌ "Python not found"?
+   → Python n'est pas dans le PATH
+   → Réinstallez Python en cochant "Add Python to PATH"
+
+❌ Le téléchargement échoue?
+   → Le peer source s'est peut-être déconnecté
+   → Réessayez dans quelques secondes
+
+═══════════════════════════════════════════════════════════════════
+
+📁 STRUCTURE APRÈS INSTALLATION
+═══════════════════════════════════════════════════════════════════
+
+Après avoir lancé install.bat/sh, ces dossiers seront créés:
+
+📁 data/            → Base de données et logs
+📁 shared_files/    → Vos fichiers partagés
+📁 downloads/       → Fichiers téléchargés (créé automatiquement)
+
+NE SUPPRIMEZ PAS le dossier data/ pendant que l'app tourne !
+
+═══════════════════════════════════════════════════════════════════
+
+⚠️ LIMITATIONS
+═══════════════════════════════════════════════════════════════════
+
+• Fonctionne UNIQUEMENT sur réseau local (pas Internet)
+• Testé jusqu'à ~100 MB par fichier
+• Maximum 10-20 peers simultanés recommandés
+• Pas de chiffrement (réseau privé uniquement)
+• Pas de reprise de téléchargement interrompu
+
+═══════════════════════════════════════════════════════════════════
+
+📞 SUPPORT
+═══════════════════════════════════════════════════════════════════
+
+Pour plus d'informations, consultez README.md
+
+Logs d'erreurs: data/p2p.log (créé après premier lancement)
+
+═══════════════════════════════════════════════════════════════════
+
+🎓 INFORMATIONS PROJET
+═══════════════════════════════════════════════════════════════════
+
+Projet:     P2P File Sharing
+Équipe:     COI Team
+Version:    1.0
+Année:      2026
+
+
+Technologies:
+• Python 3.9+
+• Tkinter (interface graphique)
+• Socket (réseau UDP/TCP)
+• SQLite (base de données)
+• Threading (concurrence)
+
+═══════════════════════════════════════════════════════════════════
+
+Bon partage de fichiers ! 
+
+═══════════════════════════════════════════════════════════════════

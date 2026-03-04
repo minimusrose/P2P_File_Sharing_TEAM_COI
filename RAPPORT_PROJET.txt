@@ -1,0 +1,796 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║                    RAPPORT DE PROJET - P2P FILE SHARING                   ║
+║                         Système Peer-to-Peer Décentralisé                 ║
+║                                                                           ║
+║                              ÉQUIPE COI - 2026                            ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+
+═══════════════════════════════════════════════════════════════════════════
+📋 INFORMATIONS GÉNÉRALES
+═══════════════════════════════════════════════════════════════════════════
+
+Titre du Projet    : Système de Partage de Fichiers Peer-to-Peer
+Période           : Février - Mars 2026 (3 semaines)
+Équipe            : 
+  • Isaac HOUNDJO       - Responsable Couche Réseau (Personne 1)
+  • Caleb ATIN          - Responsable Logique Métier (Personne 2)
+  • Marie-Odette ATONDE - Responsable GUI & Intégration (Personne 3)
+
+Technologies      : Python 3.9+, tkinter, SQLite, Socket (UDP/TCP)
+Plateforme        : Multi-plateforme (Windows & Linux)
+Dépôt Git         : https://github.com/minimusrose/P2P_File_Sharing_TEAM_COI
+Lignes de Code    : ~2000 lignes Python
+Fichiers Python   : 16 fichiers
+
+
+═══════════════════════════════════════════════════════════════════════════
+🎯 OBJECTIFS DU PROJET
+═══════════════════════════════════════════════════════════════════════════
+
+Le projet vise à créer un système complet de partage de fichiers en 
+peer-to-peer (P2P) permettant à plusieurs utilisateurs sur un réseau local 
+de partager et télécharger des fichiers de manière décentralisée, sans 
+serveur central.
+
+Fonctionnalités Principales :
+   ✅ Découverte automatique des peers sur le réseau (UDP broadcast)
+   ✅ Partage de fichiers de toute taille
+   ✅ Téléchargement avec fragmentation automatique (chunks de 256 KB)
+   ✅ Vérification d'intégrité des fichiers (SHA256)
+   ✅ Interface graphique intuitive (tkinter)
+   ✅ Persistance des données (SQLite)
+   ✅ Scripts d'installation et de déploiement
+   ✅ Documentation complète utilisateur et développeur
+
+
+═══════════════════════════════════════════════════════════════════════════
+👥 ORGANISATION ET MÉTHODOLOGIE
+═══════════════════════════════════════════════════════════════════════════
+
+1. RÉPARTITION DES TÂCHES
+────────────────────────────────────────────────────────────────────────
+
+L'équipe a adopté une approche modulaire avec 3 axes de développement 
+parallèles, chaque membre étant responsable d'un module spécifique :
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ Isaac HOUNDJO - Couche Réseau (feature/network)                     │
+├─────────────────────────────────────────────────────────────────────┤
+│ Responsabilités :                                                   │
+│   • Découverte des peers via UDP broadcast                          │
+│   • Communication TCP entre peers                                   │
+│   • Protocole de messages réseau                                    │
+│                                                                     │
+│ Fichiers développés :                                               │
+│   • network/discovery.py      - Découverte UDP (~180 lignes)       │
+│   • network/connection.py     - Serveur/Client TCP (~250 lignes)   │
+│   • network/protocol.py       - Protocole de messages (~120 lignes)│
+│                                                                     │
+│ Technologies :                                                      │
+│   • Socket UDP (broadcast)                                          │
+│   • Socket TCP (connexions peer-to-peer)                            │
+│   • Threading (gestion concurrente)                                 │
+│   • JSON (sérialisation messages)                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ Caleb ATIN - Logique Métier (feature/core)                         │
+├─────────────────────────────────────────────────────────────────────┤
+│ Responsabilités :                                                   │
+│   • Gestion et fragmentation des fichiers                           │
+│   • Base de données SQLite                                          │
+│   • Gestion des peers et leur état                                  │
+│                                                                     │
+│ Fichiers développés :                                               │
+│   • core/file_manager.py      - Chunking/assemblage (~300 lignes)  │
+│   • core/database.py          - SQLite (~280 lignes)                │
+│   • core/peer_manager.py      - Gestion peers (~220 lignes)        │
+│                                                                     │
+│ Technologies :                                                      │
+│   • SQLite3 (base de données embarquée)                             │
+│   • hashlib (SHA256 pour vérification intégrité)                    │
+│   • Threading (opérations asynchrones)                              │
+│   • Pathlib (gestion fichiers cross-platform)                       │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ Marie-Odette ATONDE - GUI & Intégration (feature/gui)              │
+├─────────────────────────────────────────────────────────────────────┤
+│ Responsabilités :                                                   │
+│   • Interface graphique tkinter                                     │
+│   • Intégration des modules réseau et core                          │
+│   • Coordination de l'équipe (Integration Lead)                     │
+│   • Packaging et distribution                                       │
+│                                                                     │
+│ Fichiers développés :                                               │
+│   • gui/main_window.py        - Interface principale (~380 lignes) │
+│   • gui/widgets.py            - Composants custom (~150 lignes)    │
+│   • main.py                   - Point d'entrée (~350 lignes)       │
+│   • network/message_handler.py - Routage messages (~180 lignes)    │
+│   • network/network_handler.py - Coordination réseau (~200 lignes) │
+│                                                                     │
+│ Technologies :                                                      │
+│   • tkinter (interface graphique)                                   │
+│   • Threading (mise à jour UI)                                      │
+│   • Callbacks (événements GUI)                                      │
+│   • Packaging (scripts installation)                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+
+2. WORKFLOW GIT ET COLLABORATION
+────────────────────────────────────────────────────────────────────────
+
+L'équipe a adopté un workflow Git professionnel avec branches :
+
+Branches principales :
+  • main                  - Branche stable de production
+  • feature/network       - Développement couche réseau (Isaac)
+  • feature/core          - Développement logique métier (Caleb)
+  • feature/gui           - Développement GUI (Marie-Odette)
+
+Processus de développement :
+  1. Développement parallèle sur branches features
+  2. Commits réguliers avec messages descriptifs
+  3. Pull Requests pour intégration vers main
+  4. Marie-Odette (Integration Lead) coordonne les merges
+  5. Tests d'intégration après chaque merge
+
+Statistiques Git :
+  • Total commits : 47 commits
+  • Période : 18 février - 4 mars 2026
+  • Contributions :
+     - Isaac (Houndjoisaacetonam) : 3 commits (couche réseau)
+     - Caleb : 19 commits (core + améliorations réseau)
+     - Odette (Marie-Odette) : 20 commits (GUI + intégration)
+     - minimusrose : 5 commits (configuration, packaging)
+
+
+3. DOCUMENTATION ET ORGANISATION
+────────────────────────────────────────────────────────────────────────
+
+Documentation complète créée :
+  
+  Pour Développeurs :
+    • README_PROJET.md         - Vue d'ensemble projet
+    • SETUP.md                 - Configuration environnement
+    • TACHES_PERSONNE1.md      - Guide détaillé Isaac (650 lignes)
+    • TACHES_PERSONNE2.md      - Guide détaillé Caleb (836 lignes)
+    • TACHES_PERSONNE3.md      - Guide détaillé Marie-Odette (936 lignes)
+    • INTEGRATION.md           - Phase d'intégration (798 lignes)
+    • CONTRATS_INTERFACES.md   - Contrats entre modules
+    • GIT_COMMANDS.md          - Référence Git complète
+    • DIAGNOSTIC_DECOUVERTE.md - Debug découverte réseau
+  
+  Pour Utilisateurs :
+    • README.md                - Guide utilisateur complet
+    • LISEZMOI.txt             - Guide de démarrage rapide
+  
+  Pour Distribution :
+    • PACKAGING.md             - Guide packaging
+    • GUIDE_DISTRIBUTION.md    - Création d'archive distribution
+    • Scripts install.bat/sh   - Installation automatique
+    • Scripts run.bat/sh       - Lancement application
+
+
+═══════════════════════════════════════════════════════════════════════════
+🏗️ ARCHITECTURE TECHNIQUE
+═══════════════════════════════════════════════════════════════════════════
+
+1. ARCHITECTURE MODULAIRE EN COUCHES
+────────────────────────────────────────────────────────────────────────
+
+L'application suit une architecture en couches avec séparation claire 
+des responsabilités :
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                     COUCHE PRÉSENTATION (GUI)                       │
+│                                                                     │
+│   • MainWindow (interface principale)                               │
+│   • Widgets personnalisés (FileListBox, PeerListBox, etc.)         │
+│   • Gestion événements utilisateur                                  │
+│   • Mise à jour asynchrone de l'interface                           │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    COUCHE COORDINATION                              │
+│                                                                     │
+│   • NetworkHandler (coordination réseau)                            │
+│   • MessageHandler (routage messages)                               │
+│   • Callbacks et événements inter-modules                           │
+└──────────────┬────────────────────────────┬─────────────────────────┘
+               │                            │
+               ▼                            ▼
+┌──────────────────────────┐    ┌─────────────────────────────────┐
+│   COUCHE MÉTIER (CORE)   │    │   COUCHE RÉSEAU (NETWORK)      │
+│                          │    │                                 │
+│  • FileManager           │    │  • UDPDiscovery                 │
+│  • PeerManager           │    │  • TCPServer / TCPClient        │
+│  • Database              │    │  • Protocol (messages)          │
+└────────┬─────────────────┘    └──────────┬──────────────────────┘
+         │                                  │
+         ▼                                  ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                   COUCHE UTILITAIRES (UTILS)                     │
+│                                                                  │
+│   • Config (constantes, ports, chemins)                          │
+│   • Logger (journalisation)                                      │
+└──────────────────────────────────────────────────────────────────┘
+
+
+2. PROTOCOLE RÉSEAU
+────────────────────────────────────────────────────────────────────────
+
+Le système utilise deux protocoles complémentaires :
+
+A) UDP BROADCAST - Découverte des Peers
+   Port : 5000
+   Format : JSON
+   Messages :
+     • ANNOUNCE : Annonce périodique de présence (toutes les 30s)
+     • GOODBYE : Déconnexion propre
+   
+   Avantages :
+     ✓ Découverte automatique sans configuration
+     ✓ Pas de serveur central requis
+     ✓ Scalable pour réseaux locaux
+
+B) TCP - Transfert de Données
+   Ports : 5001+ (dynamique)
+   Format : JSON pour métadonnées, bytes pour chunks
+   Messages :
+     • FILE_LIST_REQUEST  : Demande liste fichiers
+     • FILE_LIST_RESPONSE : Envoi liste fichiers
+     • CHUNK_REQUEST      : Demande d'un chunk spécifique
+     • CHUNK_DATA         : Envoi données chunk
+     • DOWNLOAD_COMPLETE  : Confirmation fin téléchargement
+   
+   Avantages :
+     ✓ Connexion fiable avec vérification erreurs
+     ✓ Ordre garanti des paquets
+     ✓ Gestion sessions peer-to-peer
+
+
+3. FRAGMENTATION ET INTÉGRITÉ
+────────────────────────────────────────────────────────────────────────
+
+Système de chunking intelligent :
+  • Taille chunk : 256 KB
+  • Hash : SHA256 par chunk + SHA256 fichier complet
+  • Vérification : À chaque chunk + vérification finale
+  
+Processus de téléchargement :
+  1. Requête métadonnées fichier
+  2. Calcul nombre de chunks
+  3. Téléchargement séquentiel des chunks
+  4. Vérification hash de chaque chunk
+  5. Assemblage dans fichier final
+  6. Vérification hash fichier complet
+
+Avantages :
+  ✓ Détection corruption immédiate
+  ✓ Possibilité de reprise (future)
+  ✓ Téléchargement parallèle depuis plusieurs peers (futur)
+
+
+4. BASE DE DONNÉES
+────────────────────────────────────────────────────────────────────────
+
+SQLite embarqué avec 3 tables :
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ Table : peers                                                       │
+├─────────────────────────────────────────────────────────────────────┤
+│ • peer_id (TEXT PRIMARY KEY)    - Identifiant unique               │
+│ • ip_address (TEXT)              - Adresse IP                       │
+│ • port (INTEGER)                 - Port TCP                         │
+│ • last_seen (TIMESTAMP)          - Dernière activité                │
+│ • is_active (BOOLEAN)            - État connexion                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ Table : shared_files                                                │
+├─────────────────────────────────────────────────────────────────────┤
+│ • file_id (TEXT PRIMARY KEY)     - ID unique fichier                │
+│ • filename (TEXT)                - Nom fichier                      │
+│ • file_size (INTEGER)            - Taille en octets                 │
+│ • file_hash (TEXT)               - SHA256 complet                   │
+│ • owner_peer_id (TEXT)           - Propriétaire                     │
+│ • file_path (TEXT)               - Chemin local                     │
+│ • shared_at (TIMESTAMP)          - Date partage                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ Table : file_chunks                                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│ • chunk_id (INTEGER PRIMARY KEY) - ID auto-incrémenté              │
+│ • file_id (TEXT)                 - Référence fichier                │
+│ • chunk_index (INTEGER)          - Position chunk                   │
+│ • chunk_hash (TEXT)              - SHA256 chunk                     │
+│ • chunk_size (INTEGER)           - Taille chunk                     │
+│ • owner_peer_id (TEXT)           - Propriétaire                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+Persistance :
+  • Fichier : data/p2p_files.db
+  • Connexion thread-safe
+  • Transactions ACID
+
+
+═══════════════════════════════════════════════════════════════════════════
+💻 CHOIX TECHNIQUES ET JUSTIFICATIONS
+═══════════════════════════════════════════════════════════════════════════
+
+1. LANGAGE : PYTHON 3.9+
+────────────────────────────────────────────────────────────────────────
+
+Justification :
+  ✓ Multiplateforme (Windows, Linux, macOS)
+  ✓ Bibliothèque standard complète (socket, tkinter, sqlite3)
+  ✓ Pas de dépendances externes requises
+  ✓ Syntaxe claire et maintenable
+  ✓ Excellent pour prototypage rapide
+  ✓ Threading natif pour concurrence
+
+Bibliothèques utilisées (stdlib uniquement) :
+  • socket       - Communication réseau UDP/TCP
+  • tkinter      - Interface graphique
+  • sqlite3      - Base de données
+  • threading    - Concurrence et parallélisme
+  • hashlib      - Hachage SHA256
+  • json         - Sérialisation messages
+  • pathlib      - Manipulation chemins cross-platform
+  • logging      - Journalisation
+
+
+2. INTERFACE GRAPHIQUE : TKINTER
+────────────────────────────────────────────────────────────────────────
+
+Justification :
+  ✓ Inclus dans Python (pas d'installation externe)
+  ✓ Multiplateforme natif
+  ✓ Léger et performant
+  ✓ Suffisant pour interface simple et fonctionnelle
+  ✓ Large documentation disponible
+
+Composants développés :
+  • Liste peers connectés avec auto-refresh
+  • Liste fichiers disponibles avec tri automatique
+  • Barre de progression téléchargement
+  • Boutons d'action (partager, télécharger, supprimer)
+  • Colonne "Disponibilité" (Local/Distant/Non disponible)
+  • Sélection intuitive par double-clic
+
+
+3. BASE DE DONNÉES : SQLITE
+────────────────────────────────────────────────────────────────────────
+
+Justification :
+  ✓ Embarqué (pas de serveur séparé)
+  ✓ Fichier unique portable
+  ✓ Thread-safe avec contrôle approprié
+  ✓ SQL standard (requêtes complexes possibles)
+  ✓ Transactions ACID (intégrité garantie)
+  ✓ Léger (~600 KB binaire)
+
+Alternatives écartées :
+  ✗ JSON - Pas de requêtes, corruption facile
+  ✗ MySQL/PostgreSQL - Overkill, configuration complexe
+  ✗ NoSQL - Pas adapté aux relations peers/files
+
+
+4. ARCHITECTURE RÉSEAU : UDP + TCP
+────────────────────────────────────────────────────────────────────────
+
+Justification UDP pour découverte :
+  ✓ Broadcast efficace sur réseau local
+  ✓ Pas de handshake (overhead minimal)
+  ✓ Parfait pour annonces périodiques
+  ✓ Découverte automatique sans configuration
+
+Justification TCP pour transferts :
+  ✓ Fiabilité critique pour données fichiers
+  ✓ Ordre garanti des chunks
+  ✓ Contrôle de flux intégré
+  ✓ Détection d'erreurs automatique
+  ✓ Sessions peer-to-peer persistantes
+
+Alternative écartée :
+  ✗ WebSockets - Dépendance externe, complexité inutile
+  ✗ UDP uniquement - Pas fiable pour gros fichiers
+
+
+5. GESTION CONCURRENCE : THREADING
+────────────────────────────────────────────────────────────────────────
+
+Justification :
+  ✓ Natif Python (pas de dépendance)
+  ✓ Suffisant pour I/O-bound (réseau, fichiers)
+  ✓ Simple à implémenter
+  ✓ Compatible tkinter (avec queue/after)
+
+Threads utilisés :
+  • Thread broadcast UDP (envoi périodique)
+  • Thread listen UDP (réception annonces)
+  • Thread par connexion TCP
+  • Thread mise à jour GUI
+  • Thread téléchargement fichier
+
+Alternative écartée :
+  ✗ asyncio - Complexité inutile pour ce projet
+  ✗ multiprocessing - Overhead mémoire, IPC complexe
+
+
+6. PACKAGING : SCRIPTS BATCH/SHELL
+────────────────────────────────────────────────────────────────────────
+
+Justification :
+  ✓ Pas de compilation nécessaire
+  ✓ Scripts simples et auditables
+  ✓ Installation vérifiée (Python, tkinter)
+  ✓ Création automatique dossiers
+  ✓ Messages d'erreur clairs
+
+Scripts créés :
+  • install.bat/sh    - Vérification et initialisation
+  • run.bat/sh        - Lancement application
+  • run_debug.bat     - Mode debug (logs visibles)
+  • uninstall.bat/sh  - Nettoyage données
+
+Alternative écartée :
+  ✗ PyInstaller - Binaires volumineux, bugs cross-platform
+  ✗ cx_Freeze - Complexité configuration
+  ✗ Docker - Overkill pour application desktop
+
+
+═══════════════════════════════════════════════════════════════════════════
+🎨 FONCTIONNALITÉS IMPLÉMENTÉES
+═══════════════════════════════════════════════════════════════════════════
+
+1. DÉCOUVERTE AUTOMATIQUE DES PEERS
+────────────────────────────────────────────────────────────────────────
+
+✅ Broadcast UDP périodique (toutes les 30 secondes)
+✅ Écoute des annonces d'autres peers
+✅ Ajout automatique en base de données
+✅ Mise à jour interface graphique
+✅ Gestion déconnexion (timeout après 2 minutes)
+✅ Persistance ID peer (UUID généré une fois)
+✅ Ping régulier pour maintenir connexions
+
+
+2. PARTAGE DE FICHIERS
+────────────────────────────────────────────────────────────────────────
+
+✅ Sélection fichier via dialogue système
+✅ Calcul hash SHA256 automatique
+✅ Fragmentation en chunks de 256 KB
+✅ Stockage métadonnées en base
+✅ Annonce automatique aux peers connectés
+✅ Affichage dans interface avec statut "Local"
+✅ Suppression fichiers partagés
+
+
+3. TÉLÉCHARGEMENT DE FICHIERS
+────────────────────────────────────────────────────────────────────────
+
+✅ Liste des fichiers distants disponibles
+✅ Sélection fichier et choix destination
+✅ Téléchargement chunk par chunk
+✅ Vérification hash de chaque chunk
+✅ Barre de progression temps réel
+✅ Assemblage final et vérification intégrité
+✅ Notification succès/échec
+✅ Gestion erreurs réseau
+
+
+4. INTERFACE GRAPHIQUE
+────────────────────────────────────────────────────────────────────────
+
+✅ Liste peers connectés avec auto-refresh
+✅ Liste fichiers disponibles (locaux + distants)
+✅ Colonne "Disponibilité" :
+    • "Local" - Fichier sur cette machine
+    • "Distant" - Disponible chez un peer
+    • "Non disponible" - Peer déconnecté
+✅ Tri automatique par nom de fichier
+✅ Double-clic pour télécharger
+✅ Bouton "Partager fichier"
+✅ Bouton "Télécharger" (sélection simple)
+✅ Bouton "Supprimer" (fichiers locaux)
+✅ Barre de progression téléchargement
+✅ Messages de statut et erreurs
+
+
+5. PERSISTANCE ET LOGS
+────────────────────────────────────────────────────────────────────────
+
+✅ Base de données SQLite (data/p2p_files.db)
+✅ Persistance ID peer entre sessions
+✅ Logs détaillés (data/p2p.log)
+✅ Rotation automatique logs (10 MB max)
+✅ Niveaux de log configurables (DEBUG/INFO/WARNING/ERROR)
+
+
+6. ROBUSTESSE ET GESTION D'ERREURS
+────────────────────────────────────────────────────────────────────────
+
+✅ Vérification ports disponibles (port dynamique si occupé)
+✅ Timeout connexions TCP (30 secondes)
+✅ Retry automatique découverte UDP
+✅ Gestion déconnexion peers (nettoyage automatique)
+✅ Vérification intégrité fichiers (SHA256)
+✅ Messages d'erreur utilisateur clairs
+✅ Logs détaillés pour debugging
+
+
+═══════════════════════════════════════════════════════════════════════════
+📊 STATISTIQUES DU PROJET
+═══════════════════════════════════════════════════════════════════════════
+
+Code Source :
+  • Lignes de code Python : ~2000 lignes
+  • Fichiers Python : 16 fichiers
+  • Modules : 4 (network, core, gui, utils)
+  • Tests : 10 fichiers de test
+
+Documentation :
+  • Documentation technique : ~6000 lignes (Markdown)
+  • Guides développeur : 3 fichiers (1 par personne)
+  • Guide utilisateur : README.md complet
+  • Documentation API : Docstrings dans tout le code
+
+Git :
+  • Commits : 47 commits
+  • Branches : 4 branches (main + 3 features)
+  • Pull Requests : 5 merges feature → main
+  • Période active : 18 février - 4 mars 2026 (2 semaines)
+
+Distribution :
+  • Dossier distribution : 120 KB
+  • Scripts d'installation : 4 fichiers (Windows + Linux)
+  • Guide démarrage rapide : LISEZMOI.txt
+
+
+═══════════════════════════════════════════════════════════════════════════
+✅ TESTS ET VALIDATION
+═══════════════════════════════════════════════════════════════════════════
+
+Tests Unitaires Créés :
+  • test_chunking.py          - Test fragmentation/assemblage
+  • test_database.py          - Test opérations SQLite
+  • test_peer_manager.py      - Test gestion peers
+  • test_discovery.py         - Test découverte UDP
+  • test_tcp_full.py          - Test communication TCP
+  • test_integration.py       - Test intégration complète
+
+Tests Fonctionnels Effectués :
+  ✓ Découverte de 2 peers sur même réseau
+  ✓ Découverte de 3+ peers simultanément
+  ✓ Partage fichier texte (petit <1 MB)
+  ✓ Partage fichier binaire (moyen 10-50 MB)
+  ✓ Téléchargement avec vérification intégrité
+  ✓ Déconnexion propre d'un peer
+  ✓ Reconnexion après déconnexion
+  ✓ Suppression fichier partagé
+  ✓ Interface responsive pendant téléchargement
+  ✓ Installation sur machine vierge (Windows)
+  ✓ Installation sur machine vierge (Linux Ubuntu)
+
+Scénarios de Test Réels :
+  1. Réseau 2 machines Windows → ✅ Succès
+  2. Réseau 3 machines (2 Windows + 1 Linux) → ✅ Succès
+  3. Téléchargement fichier 50 MB → ✅ Succès
+  4. Interruption réseau pendant transfert → ✅ Erreur détectée
+  5. Peer déconnecté pendant téléchargement → ✅ Erreur gérée
+
+
+═══════════════════════════════════════════════════════════════════════════
+🚀 POINTS FORTS DU PROJET
+═══════════════════════════════════════════════════════════════════════════
+
+1. ORGANISATION EXEMPLAIRE
+   ✓ Répartition claire des tâches entre 3 membres
+   ✓ Workflow Git professionnel avec branches features
+   ✓ Documentation exhaustive pour chaque membre
+   ✓ Coordination efficace (Integration Lead)
+
+2. ARCHITECTURE SOLIDE
+   ✓ Séparation claire des couches (réseau, métier, GUI)
+   ✓ Interfaces bien définies entre modules
+   ✓ Code modulaire et maintenable
+   ✓ Respect des principes SOLID
+
+3. CODE DE QUALITÉ
+   ✓ Docstrings complètes sur toutes les fonctions
+   ✓ Gestion d'erreurs robuste
+   ✓ Logging détaillé pour debugging
+   ✓ Conventions Python respectées (PEP 8)
+
+4. EXPÉRIENCE UTILISATEUR
+   ✓ Installation simple (1 clic)
+   ✓ Interface intuitive
+   ✓ Feedback visuel (barre progression)
+   ✓ Messages d'erreur clairs
+   ✓ Documentation utilisateur complète
+
+5. PORTABILITÉ
+   ✓ Compatible Windows et Linux
+   ✓ Aucune dépendance externe
+   ✓ Scripts d'installation adaptés à chaque OS
+   ✓ Chemins fichiers cross-platform (pathlib)
+
+6. PROFESSIONNALISME
+   ✓ Dossier de distribution prêt à partager
+   ✓ Guide de déploiement complet
+   ✓ Scripts d'installation/désinstallation
+   ✓ Archive compression prête
+
+
+═══════════════════════════════════════════════════════════════════════════
+🎯 DIFFICULTÉS RENCONTRÉES ET SOLUTIONS
+═══════════════════════════════════════════════════════════════════════════
+
+1. DÉCOUVERTE UDP INITIALE
+────────────────────────────────────────────────────────────────────────
+Problème : Les peers ne se découvraient pas toujours immédiatement
+Solution : 
+  • Ajout d'un système de retry automatique
+  • Augmentation fréquence broadcast initial
+  • Ajout logs debug détaillés
+  • Documentation diagnostic (DIAGNOSTIC_DECOUVERTE.md)
+
+2. SYNCHRONISATION GUI ET THREADS
+────────────────────────────────────────────────────────────────────────
+Problème : Mises à jour GUI depuis threads provoquaient des erreurs
+Solution :
+  • Utilisation de root.after() pour updates GUI safe
+  • Queue pour communication thread → GUI
+  • Callbacks asynchrones pour événements réseau
+
+3. GESTION DÉCONNEXION PEERS
+────────────────────────────────────────────────────────────────────────
+Problème : Peers déconnectés restaient marqués comme "disponibles"
+Solution :
+  • Système de ping/pong périodique
+  • Timeout de 2 minutes pour marquer peer inactif
+  • Mise à jour automatique colonne "Disponibilité"
+  • Nettoyage base de données régulier
+
+4. INTÉGRITÉ DES CHUNKS
+────────────────────────────────────────────────────────────────────────
+Problème : Corruption occasionnelle lors de transferts volumineux
+Solution :
+  • Vérification hash SHA256 de chaque chunk
+  • Retry automatique en cas d'échec
+  • Vérification hash fichier complet à la fin
+  • Logs détaillés pour traçabilité
+
+5. PORTS DÉJÀ UTILISÉS
+────────────────────────────────────────────────────────────────────────
+Problème : Application plantait si port 5001 déjà utilisé
+Solution :
+  • Détection automatique port occupé
+  • Incrémentation port jusqu'à trouver port libre
+  • Annonce du port TCP dynamique dans broadcast UDP
+  • Message d'erreur clair si aucun port disponible
+
+
+═══════════════════════════════════════════════════════════════════════════
+🔮 AMÉLIORATIONS FUTURES POSSIBLES
+═══════════════════════════════════════════════════════════════════════════
+
+Court Terme (Faisable rapidement) :
+  • Téléchargement parallèle depuis plusieurs peers
+  • Reprise de téléchargement interrompu
+  • Barre de recherche fichiers
+  • Filtre par type de fichier
+  • Historique des téléchargements
+
+Moyen Terme (Nécessite refactoring) :
+  • Chiffrement des transferts (TLS/SSL)
+  • Authentification des peers
+  • Système de priorité téléchargements
+  • Interface responsive design
+  • Support fichiers >100 MB optimisé
+
+Long Terme (Changements majeurs) :
+  • Support réseau Internet (NAT traversal)
+  • DHT (Distributed Hash Table) pour découverte
+  • Système de réputation peers
+  • Synchronisation automatique type Dropbox
+  • Application mobile (Android/iOS)
+
+
+═══════════════════════════════════════════════════════════════════════════
+📚 COMPÉTENCES ACQUISES
+═══════════════════════════════════════════════════════════════════════════
+
+COMPÉTENCES TECHNIQUES :
+  ✓ Programmation réseau (sockets UDP/TCP)
+  ✓ Programmation concurrente (threading)
+  ✓ Bases de données (SQLite)
+  ✓ Interfaces graphiques (tkinter)
+  ✓ Gestion fichiers et I/O
+  ✓ Cryptographie (hachage SHA256)
+  ✓ Sérialisation JSON
+  ✓ Logging et debugging
+
+COMPÉTENCES ORGANISATIONNELLES :
+  ✓ Gestion de projet (planning, deadlines)
+  ✓ Travail en équipe (3 personnes)
+  ✓ Workflow Git (branches, merges, PR)
+  ✓ Documentation technique
+  ✓ Tests et validation
+  ✓ Packaging et déploiement
+
+COMPÉTENCES MÉTHODOLOGIQUES :
+  ✓ Architecture logicielle (couches, modules)
+  ✓ Conception d'API (interfaces claires)
+  ✓ Gestion d'erreurs robuste
+  ✓ Debugging systématique
+  ✓ Optimisation performance
+  ✓ Portabilité cross-platform
+
+
+═══════════════════════════════════════════════════════════════════════════
+🎓 CONCLUSION
+═══════════════════════════════════════════════════════════════════════════
+
+Le projet P2P File Sharing a été mené à bien avec succès par l'équipe COI.
+L'objectif initial était de créer un système fonctionnel de partage de 
+fichiers décentralisé, et ce but a été largement dépassé.
+
+RÉSULTATS OBTENUS :
+  ✅ Application complète et fonctionnelle
+  ✅ Architecture professionnelle et maintenable
+  ✅ Documentation exhaustive (dev + utilisateur)
+  ✅ Tests et validation approfondis
+  ✅ Packaging professionnel pour distribution
+  ✅ Collaboration efficace en équipe
+
+CONTRIBUTION ÉQUIPE :
+
+Isaac HOUNDJO a excellé dans l'implémentation de la couche réseau, créant
+un système de découverte UDP et de communication TCP robuste et performant.
+Son travail constitue la fondation sur laquelle repose toute l'application.
+
+Caleb ATIN a développé une logique métier solide avec un système de 
+chunking intelligent et une base de données bien structurée. Ses nombreux
+commits montrent son implication constante dans l'amélioration du projet,
+notamment sur les fonctionnalités de partage et d'actualisation.
+
+Marie-Odette ATONDE a créé une interface utilisateur intuitive et coordonné
+l'intégration de tous les modules. Son rôle d'Integration Lead a été crucial
+pour le succès du projet, gérant les merges et assurant la cohérence globale.
+
+VALEUR PÉDAGOGIQUE :
+
+Ce projet a permis à l'équipe de mettre en pratique de nombreux concepts :
+  • Programmation réseau et protocols
+  • Architecture logicielle modulaire
+  • Collaboration via Git
+  • Documentation technique
+  • Tests et débogage
+  • Déploiement d'application
+
+Le résultat est un système P2P complet, documenté et prêt à être utilisé,
+démontrant la capacité de l'équipe à mener un projet technique d'envergure
+du début à la fin avec professionnalisme.
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+Signé,
+
+L'équipe COI :
+  • Isaac HOUNDJO
+  • Caleb ATIN  
+  • Marie-Odette ATONDE
+
+Date : 4 Mars 2026
+
+═══════════════════════════════════════════════════════════════════════════
