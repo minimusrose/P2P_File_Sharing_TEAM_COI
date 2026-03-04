@@ -27,6 +27,20 @@ class MessageHandler:
             message: Dict avec 'type', 'peer_id', 'data'
         """
         msg_type = message.get("type")
+        
+        # Mettre à jour last_seen du peer pour le garder actif
+        # Important: maintient le peer en ligne même sans broadcasts UDP
+        if self.peer_manager and hasattr(self.peer_manager, 'db') and self.peer_manager.db:
+            try:
+                # Récupérer l'info du peer pour garder son IP/port
+                peers = self.peer_manager.get_online_peers(timeout=3600)  # Large timeout pour chercher
+                peer_info = next((p for p in peers if p['peer_id'] == sender_peer_id), None)
+                if peer_info:
+                    # Re-add le peer pour mettre à jour last_seen
+                    self.peer_manager.add_peer(sender_peer_id, peer_info['ip'], peer_info['port'])
+                    logger.debug(f"Updated last_seen for peer {sender_peer_id}")
+            except Exception as e:
+                logger.debug(f"Could not update last_seen for {sender_peer_id}: {e}")
 
         if msg_type == MessageType.FILE_LIST_REQUEST:
             return self._handle_file_list_request(sender_peer_id, message)

@@ -31,6 +31,10 @@ class MainWindow:
             self.root.after(2000, self.update_peer_list)
         if self.file_manager:
             self.root.after(3000, self.update_file_list)
+        
+        # Keep-alive périodique pour maintenir les peers actifs (toutes les 20 secondes)
+        if self.network and self.peer_manager:
+            self.root.after(20000, self._keep_alive_loop)
     
     def _build_ui(self):
         """Construit l'interface"""
@@ -612,6 +616,32 @@ class MainWindow:
         except Exception as e:
             logger.error(f"Delete error: {e}", exc_info=True)
             messagebox.showerror("Erreur", f"Erreur lors de la suppression: {e}")
+    
+    def _keep_alive_loop(self):
+        """
+        Boucle de keep-alive pour maintenir les peers actifs.
+        Envoie des requêtes FILE_LIST périodiques pour mettre à jour last_seen.
+        S'exécute toutes les 20 secondes (avant le timeout de 30 secondes).
+        """
+        try:
+            if (
+                self.network
+                and hasattr(self.network, "request_file_lists")
+                and self.peer_manager
+                and hasattr(self.peer_manager, "local_peer_id")
+                and self.peer_manager.local_peer_id
+            ):
+                # Vérifier s'il y a des peers en ligne
+                peers = self.peer_manager.get_online_peers()
+                if peers and len(peers) > 0:
+                    logger.debug(f"Keep-alive: Refreshing file lists from {len(peers)} peers")
+                    self.network.request_file_lists(self.peer_manager.local_peer_id)
+        except Exception as e:
+            logger.error(f"Keep-alive error: {e}")
+        finally:
+            # Re-planifier dans 20 secondes
+            if self.network and self.peer_manager:
+                self.root.after(20000, self._keep_alive_loop)
     
     def run(self):
         """Lance la boucle d'événements tkinter"""
