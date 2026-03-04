@@ -50,8 +50,10 @@ class UDPDiscovery:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         
-        # Déterminer l'adresse broadcast appropriée
-        broadcast_addr = self._get_broadcast_address()
+        # Utiliser '<broadcast>' pour compatibilité maximale
+        # Note: '<broadcast>' est plus fiable que de calculer l'adresse broadcast spécifique
+        # car il fonctionne sur tous les réseaux sans dépendre du masque de sous-réseau
+        broadcast_addr = '<broadcast>'
         logger.info(f"Broadcasting to: {broadcast_addr}:{self.port}")
         
         while self.running:
