@@ -1,0 +1,24 @@
+# Requirements pour P2P File Sharing
+# 
+# Note: Ce projet utilise uniquement la bibliothèque standard Python (stdlib)
+# Aucune dépendance externe n'est requise pour la version de base.
+#
+# Python 3.9+ inclut déjà:
+# - tkinter (interface graphique)
+# - socket (réseau)
+# - sqlite3 (base de données)
+# - threading (concurrence)
+# - hashlib (SHA256)
+# - json (sérialisation)
+#
+# Si vous ajoutez des fonctionnalités futures, décommentez les dépendances ci-dessous:
+
+# Pour le chiffrement avancé (optionnel):
+# cryptography>=41.0.0
+
+# Pour les tests (optionnel):
+# pytest>=7.4.0
+# pytest-cov>=4.1.0
+
+# Pour le packaging avancé (optionnel):
+# pyinstaller>=5.13.0
