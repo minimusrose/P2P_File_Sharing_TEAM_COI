@@ -51,22 +51,29 @@ class MessageHandler:
         my_files = self.file_manager.get_my_file_list()
         logger.info(f"Responding with {len(my_files)} files to {sender_peer_id}")
 
-        # Créer le message de réponse
-        from .protocol import create_message, MessageType as _MessageType
+        # Créer le message de réponse (dict, pas bytes)
+        response = {
+            'type': 'FILE_LIST_RESPONSE',
+            'peer_id': self.peer_manager.local_peer_id,
+            'data': {'files': my_files}
+        }
+
+        # OPTION 1: Utiliser la connexion TCP existante si disponible
+        if self.tcp_server and sender_peer_id in self.tcp_server.clients:
+            success = self.tcp_server.send_to_peer(sender_peer_id, response)
+            if success:
+                logger.info(f"FILE_LIST_RESPONSE sent to {sender_peer_id} via existing connection ({len(my_files)} files)")
+                return
+            else:
+                logger.warning(f"Failed to send via existing connection to {sender_peer_id}")
+        
+        # OPTION 2: Essayer de se connecter si on connait son adresse
         from .connection import TCPClient
-
-        response = create_message(
-            _MessageType.FILE_LIST_RESPONSE,
-            self.peer_manager.local_peer_id,
-            {"files": my_files},
-        )
-
-        # Récupérer l'IP et le port du peer depuis la DB
         peers = self.peer_manager.get_online_peers()
         peer_info = next((p for p in peers if p['peer_id'] == sender_peer_id), None)
         
         if not peer_info:
-            logger.warning(f"Cannot find peer info for {sender_peer_id} to send response")
+            logger.warning(f"Cannot find peer info for {sender_peer_id} and no active connection - cannot respond")
             return
         
         # Ouvrir une nouvelle connexion pour envoyer la réponse
@@ -74,7 +81,7 @@ class MessageHandler:
         try:
             if client.connect(peer_info['ip'], peer_info['port']):
                 client.send_message(response)
-                logger.info(f"FILE_LIST_RESPONSE sent to {sender_peer_id} ({len(my_files)} files)")
+                logger.info(f"FILE_LIST_RESPONSE sent to {sender_peer_id} via new connection ({len(my_files)} files)")
             else:
                 logger.warning(f"Could not connect to {sender_peer_id} to send response")
         except Exception as e:

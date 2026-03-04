@@ -96,11 +96,16 @@ class UDPDiscovery:
         """Boucle d'écoute UDP"""
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Important sur Windows: activer SO_BROADCAST aussi pour l'écoute
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sock.bind(('', self.port))
+        
+        logger.info(f"UDP socket bound to 0.0.0.0:{self.port} (broadcast enabled)")
         
         while self.running:
             try:
                 data, addr = sock.recvfrom(1024)
+                logger.debug(f"UDP packet received from {addr[0]}:{addr[1]}, size={len(data)} bytes")
                 message = json.loads(data.decode('utf-8'))
                 
                 if message['type'] == 'ANNOUNCE':
@@ -108,10 +113,16 @@ class UDPDiscovery:
                     if peer_id != self.peer_id:  # Pas nous-mêmes
                         callback(peer_id, addr[0], message['port'])
                         logger.info(f"Peer discovered: {peer_id} at {addr[0]}")
+                    else:
+                        logger.debug(f"Ignored own broadcast from {addr[0]}")
                         
+            except socket.timeout:
+                continue  # Normal timeout, continue listening
+            except json.JSONDecodeError as e:
+                logger.warning(f"Invalid JSON received from {addr[0]}: {e}")
             except Exception as e:
                 if self.running:  # Ignorer erreurs si on s'arrête
-                    logger.error(f"Listen error: {e}")
+                    logger.error(f"Listen error: {e}", exc_info=True)
         
         sock.close()
         logger.info("Listening stopped")
