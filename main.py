@@ -135,6 +135,17 @@ class NetworkHandler:
                 client.send_message(message)
                 sent_count += 1
                 logger.info(f"FILE_LIST_REQUEST sent to {peer['peer_id']}")
+                
+                # Attendre la réponse (avec timeout de 5 secondes)
+                response = client.receive_message(timeout=5)
+                if response and response.get('type') == MessageType.FILE_LIST_RESPONSE:
+                    file_list = response['data'].get('files', [])
+                    logger.info(f"Received FILE_LIST_RESPONSE: {len(file_list)} files from {peer['peer_id']}")
+                    if self.peer_manager:
+                        self.peer_manager.update_peer_files(peer['peer_id'], file_list)
+                else:
+                    logger.warning(f"No FILE_LIST_RESPONSE received from {peer['peer_id']}")
+                    
             except Exception as e:
                 logger.error(f"Error sending FILE_LIST_REQUEST to {peer['peer_id']}: {e}")
             finally:
@@ -256,6 +267,16 @@ def main():
                 if client.connect(ip, port):
                     client.send_message(message)
                     logger.info(f"FILE_LIST_REQUEST sent to new peer {peer_id_discovered}")
+                    
+                    # Attendre la réponse (avec timeout de 5 secondes)
+                    response = client.receive_message(timeout=5)
+                    if response and response.get('type') == MessageType.FILE_LIST_RESPONSE:
+                        file_list = response['data'].get('files', [])
+                        logger.info(f"Received FILE_LIST_RESPONSE: {len(file_list)} files from {peer_id_discovered}")
+                        peer_manager.update_peer_files(peer_id_discovered, file_list)
+                    else:
+                        logger.warning(f"No FILE_LIST_RESPONSE received from {peer_id_discovered}")
+                    
                     client.close()
             except Exception as e:
                 logger.error(f"Error requesting files from new peer: {e}")
