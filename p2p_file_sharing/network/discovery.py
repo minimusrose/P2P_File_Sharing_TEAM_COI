@@ -26,10 +26,33 @@ class UDPDiscovery:
         self.broadcast_thread.start()
         logger.info(f"Broadcasting started on port {self.port}")
         
+    def _get_broadcast_address(self):
+        """Calcule l'adresse broadcast du réseau local actif"""
+        try:
+            # Obtenir l'IP locale (celle qui serait utilisée pour connexion externe)
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            
+            # Calculer l'adresse broadcast du sous-réseau (assume /24)
+            ip_parts = local_ip.split('.')
+            broadcast = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.255"
+            
+            logger.info(f"Using local IP: {local_ip}, broadcast: {broadcast}")
+            return broadcast
+        except Exception as e:
+            logger.warning(f"Could not determine broadcast address: {e}, using default")
+            return '<broadcast>'  # Fallback
+    
     def _broadcast_loop(self):
         """Boucle d'envoi d'annonces ANNOUNCE"""
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        
+        # Déterminer l'adresse broadcast appropriée
+        broadcast_addr = self._get_broadcast_address()
+        logger.info(f"Broadcasting to: {broadcast_addr}:{self.port}")
         
         while self.running:
             message = {
@@ -40,11 +63,11 @@ class UDPDiscovery:
             try:
                 sock.sendto(
                     json.dumps(message).encode('utf-8'),
-                    ('<broadcast>', self.port)
+                    (broadcast_addr, self.port)
                 )
-                logger.debug(f"Broadcast sent: {self.peer_id}")
+                logger.debug(f"Broadcast sent to {broadcast_addr}: {self.peer_id}")
             except Exception as e:
-                logger.error(f"Broadcast error: {e}")
+                logger.error(f"Broadcast error to {broadcast_addr}: {e}")
             
             time.sleep(UDP_BROADCAST_INTERVAL)
         
