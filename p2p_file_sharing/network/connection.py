@@ -10,12 +10,13 @@ logger = setup_logger(__name__)
 class TCPServer:
     """Serveur TCP acceptant connexions de peers"""
     
-    def __init__(self, port: int = TRANSFER_PORT_START):
+    def __init__(self, port: int = TRANSFER_PORT_START, peer_manager=None):
         self.port = port
         self.running = False
         self.server_thread = None
         self.clients = {}  # peer_id -> socket
         self.message_callback = None
+        self.peer_manager = peer_manager  # Optionnel: pour enregistrer peers automatiquement
         
     def start(self, message_callback):
         """
@@ -72,6 +73,7 @@ class TCPServer:
     def _handle_client(self, sock, addr):
         """G├¿re les messages d'un client"""
         peer_id = None
+        peer_ip = addr[0]
         
         try:
             while self.running:
@@ -99,6 +101,16 @@ class TCPServer:
                 
                 if peer_id:
                     self.clients[peer_id] = sock
+                    
+                    # Enregistrer le peer automatiquement s'il n'est pas connu
+                    if self.peer_manager:
+                        try:
+                            # Utiliser le port par défaut pour le TCP du peer
+                            self.peer_manager.add_peer(peer_id, peer_ip, TRANSFER_PORT_START)
+                            logger.debug(f"Auto-registered peer {peer_id} from TCP connection at {peer_ip}:{TRANSFER_PORT_START}")
+                        except Exception as e:
+                            logger.error(f"Error auto-registering peer: {e}")
+                    
                     if self.message_callback:
                         self.message_callback(peer_id, message)
                     

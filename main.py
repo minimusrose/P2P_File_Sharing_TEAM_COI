@@ -277,7 +277,7 @@ def main():
             # Router selon type
             message_handler.handle_message(sender_peer_id, message)
 
-        tcp_server = TCPServer(TRANSFER_PORT_START)
+        tcp_server = TCPServer(TRANSFER_PORT_START, peer_manager=peer_manager)
         tcp_server.start(on_tcp_message)
         message_handler.tcp_server = tcp_server
 
