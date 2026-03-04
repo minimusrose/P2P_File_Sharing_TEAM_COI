@@ -595,6 +595,15 @@ class MainWindow:
             self.file_manager.db.delete_file(file_id)
             logger.info(f"File deleted from database: {filename} ({file_id})")
             
+            # Broadcaster la liste mise à jour aux autres peers
+            if self.network and self.file_manager and self.peer_manager:
+                try:
+                    my_files = self.file_manager.get_my_file_list()
+                    self.network.broadcast_my_files(self.peer_manager.local_peer_id, my_files)
+                    logger.info("Broadcast updated file list after deletion to peers")
+                except Exception as e:
+                    logger.error(f"Error broadcasting after deletion: {e}")
+            
             # Rafraîchir l'affichage
             self.update_file_list()
             self.status_var.set(f"Fichier supprimé: {filename}")

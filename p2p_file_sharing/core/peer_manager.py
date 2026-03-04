@@ -83,6 +83,23 @@ class PeerManager:
         if not self.db:
             return
         
+        # Récupérer les fichiers actuels de ce peer
+        current_files = self.db.get_files_by_peer(peer_id)
+        current_file_ids = {f['file_id'] for f in current_files}
+        
+        # Fichiers dans la nouvelle liste
+        new_file_ids = {f['file_id'] for f in file_list}
+        
+        # Supprimer les fichiers qui ne sont plus dans la liste du peer
+        files_to_delete = current_file_ids - new_file_ids
+        for file_id in files_to_delete:
+            try:
+                self.db.delete_file(file_id)
+                logger.info(f"Removed file {file_id} from peer {peer_id} (no longer available)")
+            except Exception as e:
+                logger.error(f"Error deleting file {file_id}: {e}")
+        
+        # Ajouter ou mettre à jour les fichiers de la nouvelle liste
         for file_info in file_list:
             try:
                 self.db.add_file(
@@ -96,7 +113,7 @@ class PeerManager:
             except Exception as e:
                 logger.error(f"Error adding file from peer {peer_id}: {e}")
         
-        logger.info(f"Updated {len(file_list)} files for peer {peer_id}")
+        logger.info(f"Updated {len(file_list)} files for peer {peer_id} (removed {len(files_to_delete)} old files)")
     
     def get_peers_for_file(self, file_id: str) -> List[Dict]:
         """
