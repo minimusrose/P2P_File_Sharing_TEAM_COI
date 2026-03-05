@@ -43,10 +43,12 @@ WINDOWS:
 
 LINUX:
 ------
-1. Ouvrez un terminal dans ce dossier
-2. Tapez: chmod +x install.sh && ./install.sh
-3. Tapez: ./run.sh
-4. L'application démarre !
+1. Ouvrez un terminal dans ce dossier, faites ceci : sudo apt install dos2unix -y
+2. Tapez: dos2unix install.sh
+3. Tapez: chmod +x install.sh && ./install.sh
+4. Tapez: dos2unix run.sh
+4. Tapez: ./run.sh
+5. L'application démarre !
 
 ═══════════════════════════════════════════════════════════════════
 
